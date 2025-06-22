@@ -45,7 +45,7 @@ void main(int argc , char *argv[]) {
                     if (isValidName(token))
                     realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
                     macrIdx++;
-                    macroTbl[macrIdx - 1] = token; // stopped writing here!!! 1
+                    macroTbl[macrIdx - 1] = token;
                     if (token != NULL) 
                         fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]);
                     
