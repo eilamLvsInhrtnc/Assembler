@@ -62,7 +62,7 @@ void main(int argc , char *argv[]) {
 char* getLineFromFile(FILE *fp , char line[] , char* fileName) {
     char ch;
     int lineIdx = 0;
-    while ((ch = getc(fp)) != EOF || ch != '\n') {
+    while ((ch = getc(fp)) != EOF && ch != '\n') {
         if (lineIdx == MAX_IN_LINE) // we want to allow 80 characters, no more.
             fprintf(stderr , "Error in file %s , More than 80 character in a line.\n" , fileName);
 
