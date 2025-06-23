@@ -10,6 +10,15 @@ void loadLineFromFile(FILE* , char[] , char* , int*);
 int isValidName(char*);
 int lineContainsEnd(char[]);
 
+
+void main(int argc , char *argv[]) {
+    char** macroTbl;
+    char** macroContent;
+    if (loadMacroIntoTAbles(&macroTbl , &macroContent , argc , argv) != 0)
+        exit(1);
+    
+}
+
 int loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
     int errStatus = 0;
     char** macroTbl = *(macroTblPtr); // list of macro names to initialize
