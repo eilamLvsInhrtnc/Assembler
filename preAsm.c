@@ -92,9 +92,16 @@ char* getLineFromFile(FILE *fp , char line[] , char* fileName , int* errStatusPt
     return line;
 }
 
+/**
+ * @param name array of command names (invalid names from macro).
+ * 
+ * @returns:
+ * 0 if the name is invalid
+ * 1 if the name is valid
+ */
 int isValidName (char* name) {
     for (int i = 0; i < COMMANDS_COUNT; i++) {
-        if (strcmp(name , commands[i]) == 0)
+        if (strcmp(name , commands[i]) == 0) // compare the strings to see if they match
             return 0;
     }
     return 1;
