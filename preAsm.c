@@ -66,7 +66,16 @@ int loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc
     }
     return errStatus;
 }
-
+/**
+ * @param fp input file
+ * @param line buffer for line
+ * @param fileName only for error message
+ * @param errStatusPtr error usage
+ * 
+ * @returns:
+ * line from file input
+ * 
+ */
 char* getLineFromFile(FILE *fp , char line[] , char* fileName , int* errStatusPtr) {
     char ch;
     int lineIdx = 0;
@@ -91,8 +100,9 @@ int isValidName (char* name) {
     return 1;
 }
 /**
- * @param line , line from input.
- * returns:
+ * @param line line from input.
+ * 
+ * @returns:
  * 0 if no mcroend in line at all
  * 1 if there is only mcroend
  * 2 if there is mcroend and more (invalid.)
@@ -107,4 +117,26 @@ int lineContainsEndAndValid(char line[]) {
         token = strtok(NULL , " \t");
     }
     return 0;
+}
+/**
+ * @param argc number of command line arguments (files).
+ * @param argv array of the command line arguments.
+ * @param fp the file which all off the command line arguments will be copied into.
+ * 
+ * copies all the files from the input into one file.
+ * if there are no files then the final file will be empty.
+ */
+void copyIntoFile(int argc, char *argv[], FILE *fp){
+    for(int i = 1; i < argc; i++){ // iterate until all of the command line arguments have been read.
+        FILE *input = fopen(argv[i], "r");  // open file.
+        if(input == NULL){ 
+            fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[i]);
+            continue; // continue the next iteration because the current file is null.
+        }
+        char ch;
+        while((ch = getc(input)) != EOF){ // iterate until we reach the end of the file
+            putc(ch, fp); // copy the characters of the current file into fp.
+        }
+        fclose(input);
+    }
 }
