@@ -6,36 +6,43 @@
 
 const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"lea" , "inc" , "dec" , "jmp" , "bne", "red" ,"prn" ,"jsr" , "rts" , "stop"};
 
-void loadLineFromFile(FILE* , char[] , char*);
+void loadLineFromFile(FILE* , char[] , char* , int*);
 int isValidName(char*);
 int lineContainsEnd(char[]);
 
-void main(int argc , char *argv[]) {
-    char** macroTbl; // list of macro names.
-    char** macroContent; // list of macro code with the same index as the macro names.
-    int fileIdx = 0 , macrIdx = 0;
+int loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
+    int errStatus = 0;
+    char** macroTbl = *(macroTblPtr); // list of macro names to initialize
+    char** macroContent = *(macroContentPtr); // list of macro code with the same index as the macro names , to initialize.
+    int fileIdx = 1 , macrIdx = 0;
     if (argc == 1) { // no input files.
         fprintf(stderr , "%s: No input files.\n" , argv[0]);
-        exit(1);
+        errStatus = 1;
     }
-    FILE *finalAsm = fopen("C:\\Project\\AssemblerProject\\FinalAsm.txt" , "w"); // final file.
     for (; fileIdx < argc; fileIdx++) { // go over every file given.
 
 
         FILE *inputFile = fopen(argv[fileIdx] , "r"); // open current file
+        if(inputFile == NULL){
+            fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[fileIdx]);
+            errStatus = 1;
+            continue;
+        }
 
 
         char line[MAX_IN_LINE + 1]; // line buffer , 80 characters + \0
         int expectingMcroend = 0;
-        while (getLineFromFile(inputFile , line , argv[fileIdx]) != NULL) { // get lines until line is null - end of file.
+        while (getLineFromFile(inputFile , line , argv[fileIdx] , &errStatus) != NULL) { // get lines until line is null - end of file.
             if (expectingMcroend == 1) { // if expecting mcroend , the line is inside the macro, now copying it into the macroContent array.
                 int status;
                 while (( status = lineContainsEndAndValid(line))== 0) {
                     realloc(macroContent , macrIdx*sizeof(char*));
                     strcat(macroContent[macrIdx] , line);
                 }
-                if (status == 2) 
+                if (status == 2) {
                     fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]);
+                    errStatus = 1;
+                }
             }
             char* token = strtok(line , " \t"); // strtok to seperate the lines into tokens using spaces and tabs.
             while (token != NULL) { // until the line is finished
@@ -46,10 +53,10 @@ void main(int argc , char *argv[]) {
                     realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
                     macrIdx++;
                     strcpy(macroTbl[macrIdx - 1] , token);
-                    token = strtok(NULL , " \t");
-                    if (token != NULL) 
+                    if (token != NULL) {
                         fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]);
-                    
+                        errStatus = 1;
+                    }
                     expectingMcroend = 1;
                 }
                 token = strtok(NULL , " \t");
@@ -57,15 +64,17 @@ void main(int argc , char *argv[]) {
         }
         
     }
-    
+    return errStatus;
 }
 
-char* getLineFromFile(FILE *fp , char line[] , char* fileName) {
+char* getLineFromFile(FILE *fp , char line[] , char* fileName , int* errStatusPtr) {
     char ch;
     int lineIdx = 0;
     while ((ch = getc(fp)) != EOF && ch != '\n') {
-        if (lineIdx == MAX_IN_LINE) // we want to allow 80 characters, no more.
+        if (lineIdx == MAX_IN_LINE) { // we want to allow 80 characters, no more.
             fprintf(stderr , "Error in file %s , More than 80 character in a line.\n" , fileName);
+            *errStatusPtr = 1;
+        }
 
         line[lineIdx] = ch;
         lineIdx++;
