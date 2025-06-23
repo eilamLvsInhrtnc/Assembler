@@ -46,6 +46,7 @@ void main(int argc , char *argv[]) {
                     realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
                     macrIdx++;
                     strcpy(macroTbl[macrIdx - 1] , token);
+                    token = strtok(NULL , " \t");
                     if (token != NULL) 
                         fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]);
                     
