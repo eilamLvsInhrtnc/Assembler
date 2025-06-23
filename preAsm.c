@@ -90,7 +90,7 @@ int isValidName (char* name) {
 int lineContainsEndAndValid(char line[]) {
     char* token = strtok(line , " \t");
     while (token != NULL) {
-        if (strcmp(token , "mcroend")) {
+        if (strcmp(token , "mcroend") == 0) {
             token = strtok(NULL , " \t");
             return (token == NULL) ? 1 : 2;
         }
