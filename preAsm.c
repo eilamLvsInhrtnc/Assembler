@@ -16,7 +16,10 @@ void main(int argc , char *argv[]) {
     char** macroContent;
     if (loadMacroIntoTAbles(&macroTbl , &macroContent , argc , argv) != 0)
         exit(1);
-    
+    FILE *finalAsm = fopen("C:\\Project\\AssemblerProject\\FinalAsm.txt" , "w");
+    copyIntoFile(argc , argv , finalAsm);
+
+    // לפרוש מקרואים עכשיו.
 }
 
 int loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
