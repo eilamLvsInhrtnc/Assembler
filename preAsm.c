@@ -6,7 +6,7 @@
 
 const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"lea" , "inc" , "dec" , "jmp" , "bne", "red" ,"prn" ,"jsr" , "rts" , "stop"};
 
-void loadLineFromFile(FILE* , char[] , char*);
+int* loadLineFromFile(FILE* , char[] , char*);
 int isValidName(char*);
 int lineContainsEnd(char[]);
 
@@ -15,12 +15,17 @@ void main(int argc , char *argv[]) {
     char** macroTbl;
     char** macroContent;
     FILE *finalAsm = fopen("C:\\Project\\AssemblerProject\\FinalAsm.txt" , "w");
-    copyIntoFile(argc , argv , finalAsm);
+    int *filesToCopy = loadMacroIntoTables(&macroTbl , &macroContent , argc , argv);
+    copyIntoFile(argc , argv , finalAsm , filesToCopy);
 
-    // לפרוש מקרואים עכשיו.
+
+    // פרישת המקרו...
 }
 
-void loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
+int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
+    int filesToCopy[argc];
+    for(int i = 0; i < argc; i++) filesToCopy[i] =1;
+    
     char** macroTbl = *(macroTblPtr); // list of macro names to initialize
     char** macroContent = *(macroContentPtr); // list of macro code with the same index as the macro names , to initialize.
     int fileIdx = 1 , macrIdx = 0;
@@ -33,6 +38,7 @@ void loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
         FILE *inputFile = fopen(argv[fileIdx] , "r"); // open current file
         if(inputFile == NULL){
             fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[fileIdx]); // error message.
+            filesToCopy[fileIdx]--;
             continue; // skip to next input file.
         }
 
@@ -48,6 +54,7 @@ void loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
                 }
                 if (status == 2) {
                     fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]); // error message.
+                    filesToCopy[fileIdx]--;
                     continue; // skip to next input file.
                 }
             }
@@ -62,6 +69,7 @@ void loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
                     strcpy(macroTbl[macrIdx - 1] , token);
                     if (token != NULL) {
                         fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]); // error message.
+                        filesToCopy[fileIdx]--;
                         continue; // skip to next input file.
                     }
                     expectingMcroend = 1;
@@ -71,6 +79,7 @@ void loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
         }
         
     }
+    return filesToCopy;
 }
 /**
  * @param fp input file
@@ -139,17 +148,19 @@ int lineContainsEndAndValid(char line[]) {
  * copies all the files from the input into one file.
  * if there are no files then the final file will be empty.
  */
-void copyIntoFile(int argc, char *argv[], FILE *fp){
+void copyIntoFile(int argc, char *argv[], FILE *fp , int filesToCopy[]){
     for(int i = 1; i < argc; i++){ // iterate until all of the command line arguments have been read.
         FILE *input = fopen(argv[i], "r");  // open file.
         if(input == NULL){ 
             fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[i]);
             continue; // continue the next iteration because the current file is null.
         }
+        if (filesToCopy[i] == 1) {
         char ch;
         while((ch = getc(input)) != EOF){ // iterate until we reach the end of the file
             putc(ch, fp); // copy the characters of the current file into fp.
         }
+    }
         fclose(input);
     }
 }
