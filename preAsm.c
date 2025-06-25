@@ -16,10 +16,26 @@ void main(int argc , char *argv[]) {
     char** macroContent;
     FILE *finalAsm = fopen("C:\\Project\\AssemblerProject\\FinalAsm.txt" , "w");
     int *filesToCopy = loadMacroIntoTables(&macroTbl , &macroContent , argc , argv);
-    copyIntoFile(argc , argv , finalAsm , filesToCopy);
-
+    copyIntoFile(argc , argv , finalAsm , filesToCopy , filesToCopy[0] , macroTbl , macroContent);
 
     // פרישת המקרו...
+    /*
+    mcro mac
+        lea r3 , HELLO
+        inc r5
+    mcroend
+    prn -5
+    mov r1 , r2
+    .
+    .
+    .
+    mac
+    .
+    .
+    .
+    */
+    
+    
 }
 
 int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
@@ -43,7 +59,7 @@ int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
         }
 
 
-        char line[MAX_IN_LINE + 1]; // line buffer , 80 characters + \0
+        char line[MAX_IN_LINE + 2]; // line buffer , 80 characters + \n +\0
         int expectingMcroend = 0;
         while (getLineFromFile(inputFile , line , argv[fileIdx]) != NULL) { // get lines until line is null - end of file.
             if (expectingMcroend == 1) { // if expecting mcroend , the line is inside the macro, now copying it into the macroContent array.
@@ -77,8 +93,9 @@ int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
                 token = strtok(NULL , " \t");
             }
         }
-        
+        fclose(inputFile);
     }
+    filesToCopy[0] = macrIdx;
     return filesToCopy;
 }
 /**
@@ -148,7 +165,7 @@ int lineContainsEndAndValid(char line[]) {
  * copies all the files from the input into one file.
  * if there are no files then the final file will be empty.
  */
-void copyIntoFile(int argc, char *argv[], FILE *fp , int filesToCopy[]){
+void copyIntoFile(int argc, char *argv[], FILE *outputFile , int filesToCopy[] , int macrIdx , char** macroTbl , char** macroContent){
     for(int i = 1; i < argc; i++){ // iterate until all of the command line arguments have been read.
         FILE *input = fopen(argv[i], "r");  // open file.
         if(input == NULL){ 
@@ -156,11 +173,19 @@ void copyIntoFile(int argc, char *argv[], FILE *fp , int filesToCopy[]){
             continue; // continue the next iteration because the current file is null.
         }
         if (filesToCopy[i] == 1) {
-        char ch;
-        while((ch = getc(input)) != EOF){ // iterate until we reach the end of the file
-            putc(ch, fp); // copy the characters of the current file into fp.
-        }
-    }
+            char line[MAX_IN_LINE + 2]; // line buffer , 80 characters + \n +\0
+            while (getLineFromFile(input , line , argv[i]) != NULL) {
+                int putMacro = 0;
+                for (int j = 0; j < macrIdx; j++) {
+                    if (strcmp(line , macroTbl[j]) == 0) {
+                        fputs(macroContent[j] , outputFile);
+                        putMacro = 1;
+                    }
+                }
+                if (putMacro == 0)
+                    fputs(line , outputFile);
+            }
+        }   
         fclose(input);
     }
 }
