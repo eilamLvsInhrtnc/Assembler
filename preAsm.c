@@ -9,6 +9,7 @@ const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"l
 int* loadLineFromFile(FILE* , char[] , char*);
 int isValidName(char*);
 int lineContainsEnd(char[]);
+void copyIntoFile(int , char*[] , FILE* , int* , int  , char** , char**);
 
 
 void main(int argc , char *argv[]) {
