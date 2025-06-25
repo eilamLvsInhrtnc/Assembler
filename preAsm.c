@@ -6,11 +6,12 @@
 
 const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"lea" , "inc" , "dec" , "jmp" , "bne", "red" ,"prn" ,"jsr" , "rts" , "stop"};
 
-int* loadLineFromFile(FILE* , char[] , char*);
-int isValidName(char*);
-int lineContainsEnd(char[]);
-void copyIntoFile(int , char*[] , FILE* , int* , int  , char** , char**);
 
+int isValidName(char*);
+int lineContainsEndAndValid(char[]);
+void copyIntoFile(int , char*[] , FILE* , int* , int  , char** , char**);
+int* loadMacroIntoTables(char*** , char*** , int , char*[]);
+char* getLineFromFile(FILE*, char[] , char*);
 
 void main(int argc , char *argv[]) {
     char** macroTbl;
@@ -66,7 +67,7 @@ int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
             if (expectingMcroend == 1) { // if expecting mcroend , the line is inside the macro, now copying it into the macroContent array.
                 int status;
                 while (( status = lineContainsEndAndValid(line)) == 0) {
-                    realloc(macroContent , macrIdx*sizeof(char*));
+                    macroContent = (char**)realloc(macroContent , macrIdx*sizeof(char*));
                     strcat(macroContent[macrIdx] , line);
                 }
                 if (status == 2) {
@@ -81,7 +82,7 @@ int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
 
                     token = strtok(NULL , " \t");
                     if (isValidName(token))
-                    realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
+                    macroTbl = (char**)realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
                     macrIdx++;
                     strcpy(macroTbl[macrIdx - 1] , token);
                     if (token != NULL) {
