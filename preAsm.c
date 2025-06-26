@@ -1,105 +1,207 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+#include <ctype.h>
+#include "preAsm.h"
 #define MAX_IN_LINE 80
 #define COMMANDS_COUNT 16
 
 const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"lea" , "inc" , "dec" , "jmp" , "bne", "red" ,"prn" ,"jsr" , "rts" , "stop"};
 
+/**
+ * @param argc number of command line arguments
+ * @param argv array of command line arguments
+ * 
+ * Main function of the assembler program.
+ * Handles command-line arguments, initializes macro processing,
+ * and coordinates the assembly process.
+ * Returns 1 on error, 0 on successful execution.
+ */
+int spreadMacros(int argc, char* argv[]) {
+    if (argc < 2) {  // No input files provided
+        fprintf(stderr, "%s: No input files.\n", argv[0]);
+        return 1;
+    }
 
-int isValidName(char*);
-int lineContainsEndAndValid(char[]);
-void copyIntoFile(int , char*[] , FILE* , int* , int  , char** , char**);
-int* loadMacroIntoTables(char*** , char*** , int , char*[]);
-char* getLineFromFile(FILE*, char[] , char*);
-
-void main(int argc , char *argv[]) {
-    char** macroTbl;
-    char** macroContent;
-    FILE *finalAsm = fopen("C:\\Project\\AssemblerProject\\FinalAsm.txt" , "w");
-    int *filesToCopy = loadMacroIntoTables(&macroTbl , &macroContent , argc , argv);
-    copyIntoFile(argc , argv , finalAsm , filesToCopy , filesToCopy[0] , macroTbl , macroContent);
-
-    // פרישת המקרו...
-    /*
-    mcro mac
-        lea r3 , HELLO
-        inc r5
-    mcroend
-    prn -5
-    mov r1 , r2
-    .
-    .
-    .
-    mac
-    .
-    .
-    .
-    */
+    char** macroTbl = NULL;         // Table for macro names
+    char** macroContent = NULL;     // Table for macro content
+    FILE* finalAsm = fopen("FinalAsm.txt", "w");
+    if (finalAsm == NULL) {
+        fprintf(stderr, "Could not create output file.\n");
+        return 0; //return 0 = false for succesful run
+    }
     
+    // load macros from input files into tables
+    int* filesToCopy = loadMacroIntoTables(&macroTbl, &macroContent, argc, argv);
+    int macrIdx = filesToCopy ? filesToCopy[0] : 0;  // Number of valid macros found
     
+    // copy files to output with macro spread
+    copyIntoFile(argc, argv, finalAsm, filesToCopy, macrIdx, macroTbl, macroContent);
+
+    if (macroTbl != NULL) { // free not needed memory
+        for (int i = 0; i < macrIdx; i++) free(macroTbl[i]);
+        free(macroTbl);
+    }
+    if (macroContent != NULL) { // free not needed memory
+        for (int i = 0; i < macrIdx; i++) free(macroContent[i]);
+        free(macroContent);
+    }
+    if (filesToCopy !=NULL) free(filesToCopy); // free filestocopy array.
+    fclose(finalAsm); // close final file, will be opened again in different methods
+    return 1; //return 1 = true for succesful run
 }
 
-int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int argc , char *argv[]) {
-    int filesToCopy[argc];
-    for(int i = 0; i < argc; i++) filesToCopy[i] =1;
-    
-    char** macroTbl = *(macroTblPtr); // list of macro names to initialize
-    char** macroContent = *(macroContentPtr); // list of macro code with the same index as the macro names , to initialize.
-    int fileIdx = 1 , macrIdx = 0;
-    if (argc == 1) { // no input files.
-        fprintf(stderr , "%s: No input files.\n" , argv[0]); // error message.
-    }
-    for (; fileIdx < argc; fileIdx++) { // go over every file given.
+/**
+ * @param macroTblPtr pointer to macro names table
+ * @param macroContentPtr pointer to macro content table
+ * @param argc number of command line arguments
+ * @param argv array of command line arguments
+ * 
+ * @returns:
+ * array indicating which files should be copied (index 0 contains macro count)
+ * 
+ * Processes input files to identify macro definitions.
+ * Populates macro tables with names and content.
+ * Skips files with errors in macro definitions.
+ */
+int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc, char* argv[]) {
+    // Allocate and initialize filesToCopy array
+    int *filesToCopy = malloc(argc*sizeof(int));
+    for (int i = 1; i < argc; i++) filesToCopy[i] = 1;
 
+    char** macroTbl = NULL;        // "2d array" = string array to keep macro names
+    char** macroContent = NULL;    // string array to store macro content (body of macro)
+    int macrIdx = 0;               // macro index , index for tables.
 
-        FILE *inputFile = fopen(argv[fileIdx] , "r"); // open current file
-        if(inputFile == NULL){
-            fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[fileIdx]); // error message.
-            filesToCopy[fileIdx]--;
-            continue; // skip to next input file.
+    for (int fileIdx = 1; fileIdx < argc; fileIdx++) { // go over command line input (files.)
+        FILE* inputFile = fopen(argv[fileIdx], "r"); // read mode
+        if (inputFile == NULL) { // if file pointer is null ,
+            fprintf(stderr, "%s: File %s couldn't be opened\n", argv[0], argv[fileIdx]); // send error message
+            filesToCopy[fileIdx] = 0; // toggle the file array to not copy this file.
+            continue; // skip this iteration.
         }
 
+        char line[MAX_IN_LINE + 2];   // MAX_IN_LINE + 2 = 80 + '\n' + '\0'
+        int skipCurrent = 0;          // 'boolean' to skip current file on error
+        int inMacro = 0;              // is in macro?
 
-        char line[MAX_IN_LINE + 2]; // line buffer , 80 characters + \n +\0
-        int expectingMcroend = 0;
-        while (getLineFromFile(inputFile , line , argv[fileIdx]) != NULL) { // get lines until line is null - end of file.
-            if (expectingMcroend == 1) { // if expecting mcroend , the line is inside the macro, now copying it into the macroContent array.
-                int status;
-                while (( status = lineContainsEndAndValid(line)) == 0) {
-                    macroContent = (char**)realloc(macroContent , macrIdx*sizeof(char*));
-                    strcat(macroContent[macrIdx] , line);
-                }
-                if (status == 2) {
-                    fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]); // error message.
-                    filesToCopy[fileIdx]--;
-                    continue; // skip to next input file.
-                }
-            }
-            char* token = strtok(line , " \t"); // strtok to seperate the lines into tokens using spaces and tabs.
-            while (token != NULL) { // until the line is finished
-                if (strcmp(token , "mcro") == 0){ // macro detected
-
-                    token = strtok(NULL , " \t");
-                    if (isValidName(token))
-                    macroTbl = (char**)realloc(macroTbl , (macrIdx + 1)*sizeof(char*));
+        while (getLineFromFile(inputFile, line, argv[fileIdx]) != NULL && !skipCurrent) { // go over the file , line by line.
+            char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
+            strcpy(cleanLine, line);
+            char* trimmed = trim(cleanLine);  // trim string
+            
+            if (inMacro == 1) {
+                int status = lineContainsEndAndValid(trimmed);
+                if (status == 1) {  // Valid mcroend found
+                    inMacro = 0;
                     macrIdx++;
-                    strcpy(macroTbl[macrIdx - 1] , token);
-                    if (token != NULL) {
-                        fprintf(stderr , "Error in file %s , extranous text after 'mcro' statement.\n" , argv[fileIdx]); // error message.
-                        filesToCopy[fileIdx]--;
-                        continue; // skip to next input file.
+                } 
+                else if (status == 2) {  // Extraneous text after mcroend
+                    fprintf(stderr, "Error in file %s: Extraneous text after 'mcroend'\n", argv[fileIdx]);
+                    skipCurrent = 1;
+                } 
+                else {  // Regular line inside macro , because status is 0
+                    if (macroContent[macrIdx] == NULL) { // if place is null, initialize it and put the string in it
+                        macroContent[macrIdx] = malloc(strlen(line) + 2); // initialize and allocate
+                        sprintf(macroContent[macrIdx], "%s\n", line); // put the string in it
                     }
-                    expectingMcroend = 1;
+                     else { // if there is more content in macro
+                        char* newContent = malloc(strlen(macroContent[macrIdx]) + strlen(line) + 2); // add memory
+                        sprintf(newContent, "%s%s\n", macroContent[macrIdx], line); // add the more content
+                        free(macroContent[macrIdx]); // free prev pointer to old content
+                        macroContent[macrIdx] = newContent; // store the new pointer into old one.
+                    }
                 }
-                token = strtok(NULL , " \t");
+            } 
+            else { // if not in a macro.
+                char* token = strtok(trimmed, " \t"); // seperate into tokens with ' ' or '\t'
+                if (token && strcmp(token, "mcro") == 0) { // if macro defenition starts
+                    token = strtok(NULL, " \t"); // forward to see name of macro.
+                    if (token == NULL || !isValidName(token)) { // if there is no name or invalid name.
+                        fprintf(stderr, "Error in file %s: Invalid macro name\n", argv[fileIdx]);
+                        skipCurrent = 1; // skip corrent file.
+                        continue; // skip corrent iteration.
+                    }
+                    
+                    if (strtok(NULL, " \t") != NULL) { // if more text after macro name.
+                        fprintf(stderr, "Error in file %s: Extraneous text after macro name\n", argv[fileIdx]);
+                        skipCurrent = 1; // skip corrent file.
+                        continue; // skip corrent iteration.
+                    }
+
+                    macroTbl = realloc(macroTbl, (macrIdx + 1) * sizeof(char*)); // Allocate space for new macro
+                    macroContent = realloc(macroContent, (macrIdx + 1) * sizeof(char*)); // Allocate space for new macro
+                    macroTbl[macrIdx] = strdup(token);  // Store macro name
+                    macroContent[macrIdx] = NULL;       // Initialize content
+                    inMacro = 1;  // put inMacro mode
+                }
             }
         }
-        fclose(inputFile);
+        fclose(inputFile); // close current file.
     }
-    filesToCopy[0] = macrIdx;
+    *macroTblPtr = macroTbl; // return the filled table
+    *macroContentPtr = macroContent; // return the filled table
+    filesToCopy[0] = macrIdx;  // Store macro count in index 0
     return filesToCopy;
 }
+
+/**
+ * @param argc number of command line arguments
+ * @param argv array of command line arguments
+ * @param outputFile destination file for final assembly
+ * @param filesToCopy array indicating which files to process
+ * @param macrIdx number of macros defined
+ * @param macroTbl table of macro names
+ * @param macroContent table of macro content
+ * 
+ * Copies input files to output with macro expansion.
+ * Skips macro definitions and replaces macro calls with their content.
+ */
+void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], int macrIdx, char** macroTbl, char** macroContent) {
+    for (int i = 1; i < argc; i++) {
+        if (!filesToCopy[i]) continue;  // skip files with errors
+
+        FILE* input = fopen(argv[i], "r");
+        if (!input) continue;
+
+        char line[MAX_IN_LINE + 2];  // line buffer
+        int inMacro = 0;           // is inside macro ? boolean
+
+        while (getLineFromFile(input, line, argv[i]) != NULL) { // go over the file , line by line.
+            char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
+            strcpy(cleanLine, line);
+            char* trimmed = trim(cleanLine);  // trim string
+            
+            if (inMacro == 1) {
+                if (strcmp(trimmed, "mcroend") == 0) {
+                    inMacro = 0;  // end of macro
+                }
+            } 
+            else {
+                char* token = strtok(trimmed, " \t"); // process lines outside macro
+                if (token && strcmp(token, "mcro") == 0) {
+                    inMacro = 1;  // start of macro definition
+                } 
+                else {
+                    int isMacroCall = 0; // Check if line is a macro call , using 'boolean'
+                    for (int j = 0; j < macrIdx; j++) {
+                        if (strcmp(trimmed, macroTbl[j]) == 0) {
+                            fputs(macroContent[j], outputFile); // spread macro by putting its content
+                            isMacroCall = 1;
+                            break;
+                        }
+                    }
+                    if (isMacroCall == 0) {
+                        fputs(line, outputFile); // Copy regular line to output
+                        fputc('\n', outputFile);  // Add missing newline
+                    }
+                }
+            }
+        }
+        fclose(input); // close file.
+    }
+}
+
 /**
  * @param fp input file
  * @param line buffer for line
@@ -110,36 +212,40 @@ int* loadMacroIntoTables(char*** macroTblPtr , char*** macroContentPtr , int arg
  * line from file input
  * 
  */
-char* getLineFromFile(FILE *fp , char line[] , char* fileName) {
-    char ch;
+char* getLineFromFile(FILE* fp, char line[], char* fileName) {
+    int ch;
     int lineIdx = 0;
-    while ((ch = getc(fp)) != EOF && ch != '\n') {
-        if (lineIdx == MAX_IN_LINE) { // we want to allow 80 characters, no more.
-            fprintf(stderr , "Error in file %s , More than 80 character in a line.\n" , fileName); // error message.// error message.
-            return NULL; // return null to end the loop and skip to next input file, because of error.
+    while ((ch = fgetc(fp)) != EOF && ch != '\n') { // Read characters until newline or EOF
+        if (lineIdx == MAX_IN_LINE) {  // max line length
+            fprintf(stderr, "Error in file %s: Line exceeds 80 characters\n", fileName); // error msg
+            return NULL; // return null to skip this file.
         }
-
-        line[lineIdx] = ch;
-        lineIdx++;
+        line[lineIdx++] = (char)ch;  // Store character in line array
     }
-    line[lineIdx] = '\0'; // Null-terminate the string
+
+    if (ch == EOF && lineIdx == 0) { // if the file is done and the first char is EOF, return null.
+        return NULL;  // No more data
+    }
+    
+    line[lineIdx] = '\0';  // add '\0'
     return line;
 }
 
 /**
- * @param name array of command names (invalid names from macro).
+ * @param name name of macro to check if valid
  * 
  * @returns:
  * 0 if the name is invalid
  * 1 if the name is valid
  */
-int isValidName (char* name) {
+int isValidName(char* name) {
+    if (!name) return 0;  // Null pointer check
     for (int i = 0; i < COMMANDS_COUNT; i++) {
-        if (strcmp(name , commands[i]) == 0) // compare the strings to see if they match
-            return 0;
+        if (strcmp(name, commands[i]) == 0) return 0;
     }
     return 1;
 }
+
 /**
  * @param line line from input.
  * 
@@ -149,45 +255,38 @@ int isValidName (char* name) {
  * 2 if there is mcroend and more (invalid.)
  */
 int lineContainsEndAndValid(char line[]) {
-    char* token = strtok(line , " \t");
-    while (token != NULL) {
-        if (strcmp(token , "mcroend") == 0) {
-            token = strtok(NULL , " \t");
-            return (token == NULL) ? 1 : 2;
+    char* token = strtok(line, " \t");
+    while (token) {
+        if (strcmp(token, "mcroend") == 0) {
+            token = strtok(NULL, " \t");
+            return (token == NULL) ? 1 : 2;  // Return 2 if extra text, 1 if clean
         }
-        token = strtok(NULL , " \t");
+        token = strtok(NULL, " \t");
     }
-    return 0;
+    return 0;  // No mcroend found
 }
+
 /**
- * @param argc number of command line arguments (files).
- * @param argv array of the command line arguments.
- * @param fp the file which all off the command line arguments will be copied into.
+ * @param str string to trim
  * 
- * copies all the files from the input into one file.
- * if there are no files then the final file will be empty.
+ * @returns:
+ * pointer to the trimmed string (no spaces in start or end)
  */
-void copyIntoFile(int argc, char *argv[], FILE *outputFile , int filesToCopy[] , int macrIdx , char** macroTbl , char** macroContent){
-    for(int i = 1; i < argc; i++){ // iterate until all of the command line arguments have been read.
-        FILE *input = fopen(argv[i], "r");  // open file.
-        if(input == NULL){ 
-            fprintf(stderr, "%s: File %s couldn't be opened", argv[0], argv[i]);
-            continue; // continue the next iteration because the current file is null.
-        }
-        if (filesToCopy[i] == 1) {
-            char line[MAX_IN_LINE + 2]; // line buffer , 80 characters + \n +\0
-            while (getLineFromFile(input , line , argv[i]) != NULL) {
-                int putMacro = 0;
-                for (int j = 0; j < macrIdx; j++) {
-                    if (strcmp(line , macroTbl[j]) == 0) {
-                        fputs(macroContent[j] , outputFile);
-                        putMacro = 1;
-                    }
-                }
-                if (putMacro == 0)
-                    fputs(line , outputFile);
-            }
-        }   
-        fclose(input);
+char* trim(char* str) {
+    while (*str == ' ' || *str == '\t') { // Trim starting spaces
+        str++;
+    } 
+    if (*str == '\0') { // If the string is all spaces, return it
+        return str;
     }
+    char* end = str;
+    while (*end != '\0') {  // Find the end of the string and trim end spaces
+        end++;
+    }
+    end--;  // Move back to the last character
+    while (end > str && (*end == ' ' || *end == '\t')) {
+        end--;
+    }
+    end[1] = '\0';  // finish after last character
+    return str; // return new string
 }
