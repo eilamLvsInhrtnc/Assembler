@@ -17,7 +17,7 @@ const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"l
  * and coordinates the assembly process.
  * Returns 1 on error, 0 on successful execution.
  */
-int spreadMacros(int argc, char* argv[]) {
+int spreadMacros(int argc, char* argv[] , char*** macroTblPtr) {
     if (argc < 2) {  // No input files provided
         fprintf(stderr, "%s: No input files.\n", argv[0]);
         return 1;
@@ -25,9 +25,10 @@ int spreadMacros(int argc, char* argv[]) {
 
     char** macroTbl = NULL;         // Table for macro names
     char** macroContent = NULL;     // Table for macro content
-    FILE* finalAsm = fopen("FinalAsm.txt", "w");
+    FILE* finalAsm = fopen("FinalAsm.am", "w");
     if (finalAsm == NULL) {
         fprintf(stderr, "Could not create output file.\n");
+        fclose(finalAsm);
         return 0; //return 0 = false for succesful run
     }
     
@@ -48,6 +49,7 @@ int spreadMacros(int argc, char* argv[]) {
     }
     if (filesToCopy !=NULL) free(filesToCopy); // free filestocopy array.
     fclose(finalAsm); // close final file, will be opened again in different methods
+    macroTblPtr = &macroTbl; // return the macro table pointer to the caller
     return 1; //return 1 = true for succesful run
 }
 
@@ -84,8 +86,9 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
         char line[MAX_IN_LINE + 2];   // MAX_IN_LINE + 2 = 80 + '\n' + '\0'
         int skipCurrent = 0;          // 'boolean' to skip current file on error
         int inMacro = 0;              // is in macro?
+        int lineCounter = 1;          // line counter for error messages
 
-        while (getLineFromFile(inputFile, line, argv[fileIdx]) != NULL && !skipCurrent) { // go over the file , line by line.
+        while (getLineFromFile(inputFile, line, argv[fileIdx] , lineCounter) != NULL && !skipCurrent) { // go over the file , line by line.
             char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
             strcpy(cleanLine, line);
             char* trimmed = trim(cleanLine);  // trim string
@@ -97,7 +100,7 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
                     macrIdx++;
                 } 
                 else if (status == 2) {  // Extraneous text after mcroend
-                    fprintf(stderr, "Error in file %s: Extraneous text after 'mcroend'\n", argv[fileIdx]);
+                    fprintf(stderr, "Error in file %s: line %d: Extraneous text after 'mcroend'\n", argv[fileIdx] , lineCounter);
                     skipCurrent = 1;
                 } 
                 else {  // Regular line inside macro , because status is 0
@@ -118,13 +121,13 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
                 if (token && strcmp(token, "mcro") == 0) { // if macro defenition starts
                     token = strtok(NULL, " \t"); // forward to see name of macro.
                     if (token == NULL || !isValidName(token)) { // if there is no name or invalid name.
-                        fprintf(stderr, "Error in file %s: Invalid macro name\n", argv[fileIdx]);
+                        fprintf(stderr, "Error in file %s: line %d: Invalid macro name\n", argv[fileIdx] , lineCounter);
                         skipCurrent = 1; // skip corrent file.
                         continue; // skip corrent iteration.
                     }
                     
                     if (strtok(NULL, " \t") != NULL) { // if more text after macro name.
-                        fprintf(stderr, "Error in file %s: Extraneous text after macro name\n", argv[fileIdx]);
+                        fprintf(stderr, "Error in file %s: line %d: Extraneous text after macro name\n", argv[fileIdx], lineCounter);
                         skipCurrent = 1; // skip corrent file.
                         continue; // skip corrent iteration.
                     }
@@ -136,6 +139,7 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
                     inMacro = 1;  // put inMacro mode
                 }
             }
+            lineCounter++; // increase line counter
         }
         fclose(inputFile); // close current file.
     }
@@ -166,8 +170,8 @@ void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], i
 
         char line[MAX_IN_LINE + 2];  // line buffer
         int inMacro = 0;           // is inside macro ? boolean
-
-        while (getLineFromFile(input, line, argv[i]) != NULL) { // go over the file , line by line.
+        int lineCounter = 1; // line counter for error messages
+        while (getLineFromFile(input, line, argv[i] , lineCounter) != NULL) { // go over the file , line by line.
             char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
             strcpy(cleanLine, line);
             char* trimmed = trim(cleanLine);  // trim string
@@ -197,6 +201,7 @@ void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], i
                     }
                 }
             }
+            lineCounter++; // increase line counter
         }
         fclose(input); // close file.
     }
@@ -212,12 +217,12 @@ void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], i
  * line from file input
  * 
  */
-char* getLineFromFile(FILE* fp, char line[], char* fileName) {
+char* getLineFromFile(FILE* fp, char line[], char* fileName, int lineCounter) {
     int ch;
     int lineIdx = 0;
     while ((ch = fgetc(fp)) != EOF && ch != '\n') { // Read characters until newline or EOF
         if (lineIdx == MAX_IN_LINE) {  // max line length
-            fprintf(stderr, "Error in file %s: Line exceeds 80 characters\n", fileName); // error msg
+            fprintf(stderr, "Error in file %s: line %d Line exceeds 80 characters\n", fileName , lineCounter); // error msg
             return NULL; // return null to skip this file.
         }
         line[lineIdx++] = (char)ch;  // Store character in line array
