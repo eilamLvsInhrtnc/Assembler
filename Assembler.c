@@ -25,6 +25,7 @@ int checkDupe(Symbol* , int , char*);
 int isReg(char*);
 int countWordsForCode(char *);
 char *removeSpaces(char *);
+int countWordsForData(char *);
 
 int main(int argc , char *argv[]) {
     char **macroTbl = NULL;         // Table for macro names , for label validation
@@ -446,6 +447,94 @@ int countWordsForCode(char *line){
 
     return words;
 }
+int countWordsForData(char *line){
+    int dc = 0; // data count
+
+    char originalLine[100];
+    strncpy(originalLine, line, sizeof(originalLine));
+    originalLine[sizeof(originalLine)-1] = '\0';
+    char *pOL = trimLeading(originalLine); // pointer to original line without spaces in the start
+
+    char *label = strchr(pOL, ':');
+    if (label) pOL = trimLeading(label + 1);
+
+    if (strncmp(pOL, ".data", 5) == 0 && (isspace(pOL[5]) || pOL[5] == '\0')) {
+        char *params = trimLeading(pOL + 5);
+        if (*params == ',' || params[strlen(params) - 1] == ',') {
+            fprintf(stderr, "Error: comma before first or after last number in .data\n");
+            return 0;
+        }
+        char *token = strtok(params, ",");
+        while (token) {
+            token = trimLeading(token);
+            if (!*token) {
+                fprintf(stderr, "Error: empty value between commas in .data\n");
+                return 0;
+            }
+            char *p = (*token == '+' || *token == '-') ? token + 1 : token;
+            for (; *p; p++) {
+                if (!isdigit(*p)) {
+                    fprintf(stderr, "Error: invalid character in .data number: '%s'\n", token);
+                    return 0;
+                }
+            }
+            dc++;
+            token = strtok(NULL, ",");
+        }
+    } 
+    else if (strncmp(pOL, ".string", 7) == 0 && (isspace(pOL[7]) || pOL[7] == '\0')) {
+        char *param = trimLeading(pOL + 7);
+        if (*param++ != '\"') {
+            fprintf(stderr, "Error: .string must start with a quote\n");
+            return 0;
+        }
+        while (*param && *param != '\"') {
+            dc++;
+            param++;
+        }
+        if (*param != '\"') {
+            fprintf(stderr, "Error: .string missing closing quote\n");
+            return 0;
+        }
+        dc++; // for null terminator
+    } 
+    else if (strncmp(pOL, ".mat", 4) == 0 && (isspace(pOL[4]) || pOL[4] == '\0')) {
+        char *open = strchr(pOL, '['), *close = strchr(pOL, ']');
+        if (!open || !close || close < open) {
+            fprintf(stderr, "Error: .mat missing or invalid brackets\n");
+            return 0;
+        }
+        *close = '\0';
+        char *token = strtok(open + 1, ",; \t");
+        while (token) {
+            token = trimLeading(token);
+            if (!*token) {
+                fprintf(stderr, "Error: empty matrix cell in .mat\n");
+                return 0;
+            }
+            char *p = (*token == '+' || *token == '-') ? token + 1 : token;
+            for (; *p; p++) {
+                if (!isdigit(*p)) {
+                    fprintf(stderr, "Error: invalid matrix value: '%s'\n", token);
+                    return 0;
+                }
+            }
+            dc++;
+            token = strtok(NULL, ",; \t");
+        }
+    } 
+    else {
+        fprintf(stderr, "Error: No directive found\n");
+        return 0;
+    }
+    return dc;
+
+}
+char *trimLeading(char *str) {
+    while (isspace(*str)) str++;
+    return str;
+}
+
 // inc r1
 // mov r2, r3
 // STRING: jmp A
