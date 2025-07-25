@@ -230,6 +230,24 @@ int countWordsForCode(char *line){
     return words;
 }
 
+int isReg(char *op) {
+    if (op[0] != 'r') return 0;
+    if (!isdigit(op[1])) return 0;
+    if (op[2] != '\0') return 0;
+    return op[1] >= '0' && op[1] <= '7';
+}
+
+int checkDupe(Symbol* symbolTbl , int symbolIdx, char* token) {
+    for (int i = 0; i < symbolIdx; i++) {
+        if (strcmp(symbolTbl[i].label, token) == 0) {
+            fprintf(stderr, "Error: in line %d: Label '%s' is already defined.\n", lineCounter, token);
+            errorCode = 1; // set error code
+            return 0; // label already exists
+        }
+    }
+    return 1; // label is unique
+}
+
 /**
  * @param line The assembly data directive line to analyze (may be modified).
  * @return The number of words required for the data, or 0 if an error occurs.
