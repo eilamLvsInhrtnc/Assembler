@@ -7,7 +7,7 @@
 #define COMMANDS_COUNT 16
 
 const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"lea" , "inc" , "dec" , "jmp" , "bne", "red" ,"prn" ,"jsr" , "rts" , "stop"};
-
+int preAsmErrorCode = 0;
 /**
  * @param argc number of command line arguments
  * @param argv array of command line arguments
@@ -18,6 +18,7 @@ const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "not" , "clr" ,"l
  * Returns 1 on error, 0 on successful execution.
  */
 int spreadMacros(int argc, char* argv[] , char*** macroTblPtr) {
+    printf("starting macro processing...\n");
     if (argc < 2) {  // No input files provided
         fprintf(stderr, "%s: No input files.\n", argv[0]);
         return 1;
@@ -29,7 +30,7 @@ int spreadMacros(int argc, char* argv[] , char*** macroTblPtr) {
     if (finalAsm == NULL) {
         fprintf(stderr, "Could not create output file.\n");
         fclose(finalAsm);
-        return 0; //return 0 = false for succesful run
+        return 1; //return 1 = error status.
     }
     
     // load macros from input files into tables
@@ -49,8 +50,11 @@ int spreadMacros(int argc, char* argv[] , char*** macroTblPtr) {
     }
     if (filesToCopy !=NULL) free(filesToCopy); // free filestocopy array.
     fclose(finalAsm); // close final file, will be opened again in different methods
-    macroTblPtr = &macroTbl; // return the macro table pointer to the caller
-    return 1; //return 1 = true for succesful run
+    *macroTblPtr = macroTbl; // return the macro table pointer to the caller
+    if (preAsmErrorCode == 1) { // if there was an error in the macro processing
+        return 1; // return 1 = error status.
+    }
+    return 0; // return 0 = status of success
 }
 
 /**
@@ -80,6 +84,7 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
         if (inputFile == NULL) { // if file pointer is null ,
             fprintf(stderr, "%s: File %s couldn't be opened\n", argv[0], argv[fileIdx]); // send error message
             filesToCopy[fileIdx] = 0; // toggle the file array to not copy this file.
+            preAsmErrorCode = 1;
             continue; // skip this iteration.
         }
 
@@ -91,7 +96,7 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
         while (getLineFromFile(inputFile, line, argv[fileIdx] , lineCounter) != NULL && !skipCurrent) { // go over the file , line by line.
             char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
             strcpy(cleanLine, line);
-            char* trimmed = trim(cleanLine);  // trim string
+            char* trimmed = removeStartEndSpaces(cleanLine);  // trim string
             
             if (inMacro == 1) {
                 int status = lineContainsEndAndValid(trimmed);
@@ -102,6 +107,7 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
                 else if (status == 2) {  // Extraneous text after mcroend
                     fprintf(stderr, "Error in file %s: line %d: Extraneous text after 'mcroend'\n", argv[fileIdx] , lineCounter);
                     skipCurrent = 1;
+                    preAsmErrorCode = 1;
                 } 
                 else {  // Regular line inside macro , because status is 0
                     if (macroContent[macrIdx] == NULL) { // if place is null, initialize it and put the string in it
@@ -123,12 +129,14 @@ int* loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, int argc,
                     if (token == NULL || !isValidName(token)) { // if there is no name or invalid name.
                         fprintf(stderr, "Error in file %s: line %d: Invalid macro name\n", argv[fileIdx] , lineCounter);
                         skipCurrent = 1; // skip corrent file.
+                        preAsmErrorCode = 1;
                         continue; // skip corrent iteration.
                     }
                     
                     if (strtok(NULL, " \t") != NULL) { // if more text after macro name.
                         fprintf(stderr, "Error in file %s: line %d: Extraneous text after macro name\n", argv[fileIdx], lineCounter);
                         skipCurrent = 1; // skip corrent file.
+                        preAsmErrorCode = 1;
                         continue; // skip corrent iteration.
                     }
 
@@ -174,7 +182,7 @@ void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], i
         while (getLineFromFile(input, line, argv[i] , lineCounter) != NULL) { // go over the file , line by line.
             char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
             strcpy(cleanLine, line);
-            char* trimmed = trim(cleanLine);  // trim string
+            char* trimmed = removeStartEndSpaces(cleanLine);  // trim string
             
             if (inMacro == 1) {
                 if (strcmp(trimmed, "mcroend") == 0) {
@@ -211,7 +219,7 @@ void copyIntoFile(int argc, char* argv[], FILE* outputFile, int filesToCopy[], i
  * @param fp input file
  * @param line buffer for line
  * @param fileName only for error message
- * @param errStatusPtr error usage
+ * @param lineCounter error usage
  * 
  * @returns:
  * line from file input
@@ -223,6 +231,7 @@ char* getLineFromFile(FILE* fp, char line[], char* fileName, int lineCounter) {
     while ((ch = fgetc(fp)) != EOF && ch != '\n') { // Read characters until newline or EOF
         if (lineIdx == MAX_IN_LINE) {  // max line length
             fprintf(stderr, "Error in file %s: line %d Line exceeds 80 characters\n", fileName , lineCounter); // error msg
+            preAsmErrorCode = 1;
             return NULL; // return null to skip this file.
         }
         line[lineIdx++] = (char)ch;  // Store character in line array
@@ -277,7 +286,7 @@ int lineContainsEndAndValid(char line[]) {
  * @returns:
  * pointer to the trimmed string (no spaces in start or end)
  */
-char* trim(char* str) {
+char* removeStartEndSpaces(char* str) {
     while (*str == ' ' || *str == '\t') { // Trim starting spaces
         str++;
     } 
@@ -295,3 +304,7 @@ char* trim(char* str) {
     end[1] = '\0';  // finish after last character
     return str; // return new string
 }
+
+/**
+ * 
+ */
