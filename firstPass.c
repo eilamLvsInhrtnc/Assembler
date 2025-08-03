@@ -15,7 +15,7 @@ int lineCounter = 1;
 int errorCode = 0; // Global error code for error handling
 int symbolIdx = 0; // index for the symbol table
 
-Symbol** firstPass(int argc , char *argv[]) {
+Symbol* firstPass(int argc , char *argv[]) {
     char **macroTbl = NULL;         // Table for macro names , for label validation
     int status = spreadMacros(argc , argv , &macroTbl);
     if (status == 1)
@@ -26,7 +26,7 @@ Symbol** firstPass(int argc , char *argv[]) {
     int IC = 100 , DC = 0;
     Symbol *symbolTable = NULL; // will be used to store the symbols, their addresses and their type
     char line[MAX_IN_LINE];
-    while (getLineFromFile(firstPass , line , "FinalAsm.am" , lineCounter) != NULL) {
+    while (getLineFromFile(firstPass , line , "FinalAsm.am" , &lineCounter) != NULL) {
         int addedData = 0; // flag to indicate if data was added in this line
         char *token = strtok(line , " \t");
         while (token != NULL) {
@@ -38,10 +38,10 @@ Symbol** firstPass(int argc , char *argv[]) {
                 if (token == NULL) {
                     fprintf(stderr, "Error: in line %d: No label found.\n", lineCounter);
                     errorCode = 1; // set error code
-                    continue; // skip to next line
+                    break; // skip to next line
                 }
                 symbolTable = realloc(symbolTable, (symbolIdx + 1) * sizeof(Symbol)); // reallocate memory for the symbol table
-                symbolTable[symbolIdx].label = token;
+                symbolTable[symbolIdx].label = strdup(token);
                 checkDupe(symbolTable, symbolIdx, token); // check for duplicate labels
                 symbolTable[symbolIdx].adress = 0; // set the address to the current instruction counter
                 symbolTable[symbolIdx].labelType = "external"; // set the label type to extern
@@ -66,6 +66,7 @@ Symbol** firstPass(int argc , char *argv[]) {
                     symbolTable[symbolIdx].labelType = "data"; // if the label is a data label
                     symbolTable[symbolIdx].adress = DC;
                     DC += countWordsForData(line); // increase the data counter by the number of words in the line
+                    addedData = 1;
                 }
                 else {
                     symbolTable[symbolIdx].labelType = "code"; // if the label is a code label
@@ -83,8 +84,8 @@ Symbol** firstPass(int argc , char *argv[]) {
     const int ICF = IC;
     const int DCF = DC;
 
-
-    return &symbolTable; // End of first pass
+    fclose(firstPass); // close the file after reading
+    return symbolTable; // End of first pass
 }
 
 
