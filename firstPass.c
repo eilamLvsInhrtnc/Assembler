@@ -11,34 +11,29 @@
 
 extern const char commands[16][4]; // Commands array from preAsm.h
 
-typedef struct Symbol {
-    char *label;
-    int adress;
-    char *labelType;
-}Symbol;
-
 int lineCounter = 1;
 int errorCode = 0; // Global error code for error handling
+int symbolIdx = 0; // index for the symbol table
 
-Symbol* firstPass(int argc , char *argv[]) {
+Symbol** firstPass(int argc , char *argv[]) {
     char **macroTbl = NULL;         // Table for macro names , for label validation
     int status = spreadMacros(argc , argv , &macroTbl);
-    if (status != 1)
+    if (status == 1)
         exit(1);
     
     printf("Commencing first pass...\n");
     FILE *firstPass = fopen("FinalAsm.am", "r");
     int IC = 100 , DC = 0;
-    int symbolIdx = 0; // index for the symbol table
     Symbol *symbolTable = NULL; // will be used to store the symbols, their addresses and their type
     char line[MAX_IN_LINE];
-    while (getLineFromFile(firstPass , line , NULL , lineCounter) != NULL) {
+    while (getLineFromFile(firstPass , line , "FinalAsm.am" , lineCounter) != NULL) {
+        int addedData = 0; // flag to indicate if data was added in this line
         char *token = strtok(line , " \t");
         while (token != NULL) {
             if ((token[0] == ';') || (strcmp(token , ".entry") == 0)) { // if the line is a comment OR if there is .entry (handeled in the second pass)
                 break; // skip the rest of the line , go to the next line
             }
-            if (strcmp(token , ".extern")) {
+            if (strcmp(token , ".extern") == 0) {
                 token = strtok(NULL, " \t");
                 if (token == NULL) {
                     fprintf(stderr, "Error: in line %d: No label found.\n", lineCounter);
@@ -46,40 +41,41 @@ Symbol* firstPass(int argc , char *argv[]) {
                     continue; // skip to next line
                 }
                 symbolTable = realloc(symbolTable, (symbolIdx + 1) * sizeof(Symbol)); // reallocate memory for the symbol table
-                symbolIdx++;
                 symbolTable[symbolIdx].label = token;
                 checkDupe(symbolTable, symbolIdx, token); // check for duplicate labels
                 symbolTable[symbolIdx].adress = 0; // set the address to the current instruction counter
                 symbolTable[symbolIdx].labelType = "external"; // set the label type to extern
+                symbolIdx++;
                 
             }
-            int L = countWordsForCode(line); // count the number of words in the line
-            if (L == 0) {
-                fprintf(stderr, "Error: in line %d: No valid instruction found.\n", lineCounter);
-                errorCode = 1; // set error code
-                continue; // skip to next line
-            }
             if (isLabel(token , macroTbl , symbolTable) == 1) {
-                char *labelNoColon = strtok(token, ":"); // remove the colon from the label
+                char labelNoColon[MAX_LABEL_LENGTH];
+                strncpy(labelNoColon, token, strlen(token)-1);
+                labelNoColon[strlen(token)-1] = '\0';
+    
+                if (!isLabel(labelNoColon, macroTbl, symbolTable)) {
+                    errorCode = 1;
+                    break;  // Skip line after invalid label
+                }
                 symbolTable = realloc(symbolTable, (symbolIdx + 1) * sizeof(Symbol)); // reallocate memory for the symbol table
-                symbolIdx++;
                 symbolTable[symbolIdx].label = labelNoColon;
                 checkDupe(symbolTable, symbolIdx, labelNoColon); // check for duplicate labels
                 symbolTable[symbolIdx].adress = IC; // set the address to the current instruction counter
-                IC += L; // increase the instruction counter by the number of words in the line
                 token = strtok(NULL, " \t"); // move to the next token after the label
                 if (token[0] == '.') {
                     symbolTable[symbolIdx].labelType = "data"; // if the label is a data label
-                    IC -=L; // if the label is a data label, we do not increase the instruction counter
                     symbolTable[symbolIdx].adress = DC;
                     DC += countWordsForData(line); // increase the data counter by the number of words in the line
                 }
                 else {
                     symbolTable[symbolIdx].labelType = "code"; // if the label is a code label
                 }
-                
+                symbolIdx++;
             }
             token = strtok(NULL , " \t");
+        }
+        if (addedData == 0) {
+            IC += countWordsForCode(line); // increase the instruction counter by the number of words in the line
         }
         lineCounter++; // increase line counter
     }
@@ -88,7 +84,7 @@ Symbol* firstPass(int argc , char *argv[]) {
     const int DCF = DC;
 
 
-    return symbolTable; // End of first pass
+    return &symbolTable; // End of first pass
 }
 
 
@@ -103,15 +99,15 @@ int isLabel(char *token , char **macroTbl , Symbol *symbolTable) {
         errorCode = 1; // set error code
         return 0; // not a valid label
     }
-    Symbol *tmpPtr = symbolTable;
-    char* labelNoColon = strtok(token, ":"); // remove the colon from the label
-    while (tmpPtr != NULL) {
-        if (strcmp(labelNoColon , tmpPtr->label) == 0) {
-            fprrintf(stderr , "Error: in line %d: Label '%s' is already defined.\n",lineCounter , labelNoColon);
+    char labelNoColon[MAX_LABEL_LENGTH];
+    strncpy(labelNoColon, token, strlen(token)-1);
+    labelNoColon[strlen(token)-1] = '\0';
+    for (int i = 0; i < symbolIdx; i++) {
+        if (strcmp(labelNoColon , symbolTable[i].label) == 0) {
+            fprintf(stderr , "Error: in line %d: Label '%s' is already defined.\n",lineCounter , labelNoColon);
             errorCode = 1; // set error code
             return 0; // label already exists
         }
-        tmpPtr++;
     }
     for (int i = 0; i < COMMANDS_COUNT; i++) { // check if the label is a command
         if (strcmp(labelNoColon, commands[i]) == 0) {
@@ -195,7 +191,7 @@ int countWordsForCode(char *line){
     if (opcode) {
         char *p = strtok(opcode, ","); // Parse operands, separated by commas
         while (p && oc < 10) {
-            operands[oc++] = removeSpaces(p);
+            operands[oc++] = removeStartEndSpaces(p);
             p = strtok(NULL, ",");
         }
     }
