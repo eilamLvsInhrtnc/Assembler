@@ -9,12 +9,14 @@ typedef struct Symbol {
 
 extern int symbolIdx;
 extern int errorCode;
-int isLabel(char* , char** , Symbol*);
-int isOpcode(char*);
+extern const int ICF;
+extern const int DCF;
+int isValidLabel(char* , char** , Symbol* , int);
 int isReg(char*);
-int countWordsForCode(char *);
-int countWordsForData(char *);
-int checkDupe(Symbol* , int , char*);
-Symbol** firstPass(int argc , char *argv[]);
+int countWordsForCode(char * , int);
+int countWordsForData(char * , int);
+Symbol* firstPass(int argc , char *argv[]);
+int getExpectedOperandsCount(char *);
+char *getBinaryRep(char *line);
 
 #endif
