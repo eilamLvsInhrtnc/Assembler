@@ -4,21 +4,14 @@
 #include <ctype.h>
 #include "preAsm.h"
 #include "firstPass.h"
+#include "util.h"
 
-#define MAX_IN_LINE 80
-#define COMMANDS_COUNT 16
-#define MAX_LABEL_LENGTH 30
-
-extern const char commands[16][4];
-
-int errorCode = 0; // Global error code for error handling
-int symbolIdx = 0; // index for the symbol table
-Symbol* firstPass(int argc, char *argv[]) {
+Symbol* firstPass(char *fileDest , char *fileSrc) {
     char **macroTbl = NULL;
-    int status = spreadMacros(argc, argv, &macroTbl);
+    int status = spreadMacros(fileDest , fileSrc , &macroTbl);
     if (status == 1) {
         fprintf(stderr, "Macro processing failed\n");
-        return NULL;
+        exit(1);
     }
 
     printf("Commencing first pass...\n");
@@ -135,14 +128,15 @@ Symbol* firstPass(int argc, char *argv[]) {
 int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCounter) {
     // Check length
     if (strlen(label) > MAX_LABEL_LENGTH) {
-        fprintf(stderr, "Error: Label '%s' exceeds max length (%d)\n", 
-                label, MAX_LABEL_LENGTH);
+        fprintf(stderr, "Error: Label '%s' exceeds max length (%d)\n", label, MAX_LABEL_LENGTH);
+        errorCode = 1;
         return 0;
     }
     
     // Check first character
     if (!isalpha(label[0])) {
         fprintf(stderr, "Error: in line: %d Label '%s' must start with a letter\n", lineCounter , label);
+        errorCode = 1;
         return 0;
     }
     
@@ -150,6 +144,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
     for (int i = 0; i < COMMANDS_COUNT; i++) {
         if (strcmp(label, commands[i]) == 0) {
             fprintf(stderr, "Error: in line: %d Label '%s' is a reserved command\n", lineCounter , label);
+            errorCode = 1;
             return 0;
         }
     }
@@ -159,6 +154,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
         for (int i = 0; macroTbl[i] != NULL; i++) {
             if (strcmp(label, macroTbl[i]) == 0) {
                 fprintf(stderr, "Error: in line: %d Label '%s' is a macro name\n", lineCounter , label);
+                errorCode = 1;
                 return 0;
             }
         }
@@ -168,6 +164,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
     for (int i = 0; i < symbolIdx; i++) {
         if (strcmp(label, symbolTable[i].label) == 0) {
             fprintf(stderr, "Error: in line: %d Duplicate label '%s'\n", lineCounter , label);
+            errorCode = 1;
             return 0;
         }
     }
