@@ -4,27 +4,30 @@
 #include <ctype.h>
 #include "preAsm.h"
 #include "firstPass.h"
+#include "util.h"
 
-int main(int argc, char *argv[]) {
-    printf("Assembler Program Starting...\n");
-    Symbol **symbolTable = NULL; // Initialize symbol table pointer
-    symbolTable = firstPass(argc, argv);
-    printf("First pass completed. Symbol table:\n");
-    if (errorCode == 1) {
-        exit(1);
-    }
-    if (symbolTable == NULL) {
-        fprintf(stderr, "Error during first pass.\n");
-        return 1; // Exit with error
-    }
-    for (int i = 0; i < symbolIdx; i++) {
-        printf("Label: %s, Address: %d, Type: %s\n", symbolTable[1][i].label, symbolTable[1][i].adress, symbolTable[1][i].labelType);
-    }
-
-    // Here you would typically proceed to the second pass or further processing
-    // For now, we just free the symbol table and exit
-    free(symbolTable);
+int main(int argc, char *argv[]) { // this main only executes macroSpread now.
     
-    printf("First pass completed successfully.\n");
-    return 0; // Exit with success
+
+    if (argc < 2) {  // No input files provided
+        fprintf(stderr, "%s: No input files.\n", argv[0]);
+        return 1;
+    }
+
+    char *argvAM[argc];
+    argvAM[0] = argv[0]; // Keep the program name
+    for (int i = 1; i < argc; i++) {
+        argvAM[i] = preAsmFileName(argv[i]); // Convert each argument to .am file name
+    }
+    for (int fileIdx = 1; fileIdx < argc; fileIdx++) {
+        errorCode = 0; // Reset error code for each file
+        char **macroTbl = NULL;
+        int status = spreadMacros(argvAM[fileIdx] , argv[fileIdx] , &macroTbl);
+        if (status == 1) {
+            fprintf(stderr, "Error: in file: %s macro proccesing failed.\n" , argv[fileIdx]);
+            continue;
+        }
+        printf("File %s : macro processing completed.\n", argv[fileIdx]);
+    }
+    return 0; // remove LATER!!!!!!!!!!!!!!!
 }
