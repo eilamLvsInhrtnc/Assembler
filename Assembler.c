@@ -5,15 +5,14 @@
 #include "preAsm.h"
 #include "firstPass.h"
 #include "util.h"
-
-int main(int argc, char *argv[]) { // this main only executes macroSpread now.
-    
+#include "binRep.h"
+#include "secondPass.h"
+int main(int argc, char *argv[]) {
 
     if (argc < 2) {  // No input files provided
         fprintf(stderr, "%s: No input files.\n", argv[0]);
         return 1;
     }
-
     char *argvAM[argc];
     argvAM[0] = argv[0]; // Keep the program name
     for (int i = 1; i < argc; i++) {
@@ -21,13 +20,23 @@ int main(int argc, char *argv[]) { // this main only executes macroSpread now.
     }
     for (int fileIdx = 1; fileIdx < argc; fileIdx++) {
         errorCode = 0; // Reset error code for each file
-        char **macroTbl = NULL;
-        int status = spreadMacros(argvAM[fileIdx] , argv[fileIdx] , &macroTbl);
-        if (status == 1) {
-            fprintf(stderr, "Error: in file: %s macro proccesing failed.\n" , argv[fileIdx]);
-            continue;
+        symbolIdx = 0;
+        binRepIdx = 0;
+        firstPass(argvAM[fileIdx], argv[fileIdx]); // Perform first pass assembly
+        if (errorCode != 0) {
+            printf("Error in first pass for file %s.\n", argv[fileIdx]);
+            continue; // Skip to next file if error occurred
         }
-        printf("File %s : macro processing completed.\n", argv[fileIdx]);
+        if (symbolTable == NULL) {
+            printf("No symbols found in file %s.\n", argv[fileIdx]);
+            return 1;
+        }
+        for (int i = 0; i < symbolIdx; i++) {
+            printf("Symbol: %s, Address: %d, Type: %s\n", symbolTable[i].label, symbolTable[i].adress, symbolTable[i].labelType);
+        }
+        for (int j = 0; j < binRepIdx; j++) {
+            printf("%s", binRep[j].binaryString);
+        }
     }
-    return 0; // remove LATER!!!!!!!!!!!!!!!
+    return 0;
 }
