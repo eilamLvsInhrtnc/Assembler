@@ -8,7 +8,9 @@ int isValidLabel(char* , char** , Symbol* , int);
 int isReg(char*);
 int countWordsForCode(char * , int);
 int countWordsForData(char * , int);
-Symbol* firstPass(char * , char *);
+void firstPass(char * , char *);
 int getExpectedOperandsCount(char *);
+int getAdressType(char *);
+
 
 #endif
