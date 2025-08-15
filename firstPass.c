@@ -5,8 +5,9 @@
 #include "preAsm.h"
 #include "firstPass.h"
 #include "util.h"
+#include "binRep.h"
 
-Symbol* firstPass(char *fileDest , char *fileSrc) {
+void firstPass(char *fileDest , char *fileSrc) {
     char **macroTbl = NULL;
     int status = spreadMacros(fileDest , fileSrc , &macroTbl);
     if (status == 1) {
@@ -15,18 +16,18 @@ Symbol* firstPass(char *fileDest , char *fileSrc) {
     }
 
     printf("Commencing first pass...\n");
-    FILE *firstPass = fopen("FinalAsm.am", "r");
+    FILE *firstPass = fopen(fileDest, "r");
     if (firstPass == NULL) {
-        fprintf(stderr, "Error opening FinalAsm.am\n");
-        return NULL;
+        fprintf(stderr, "Error: unable to open %s.\n" , fileDest);
+        return;
     }
 
     int IC = 100, DC = 0;
-    Symbol *symbolTable = NULL;
     char line[MAX_IN_LINE];
     int lineCounter = 1;
 
-    while (getLineFromFile(firstPass, line, "FinalAsm.am", &lineCounter) != NULL) {
+    while (getLineFromFile(firstPass, line, fileDest, &lineCounter) != NULL) {
+        char *lineForCode = strdup(line);
         // Skip empty lines and comments
         char *originalLine = strdup(line);
         if (line[0] == '\0' || line[0] == ';') {
@@ -92,7 +93,12 @@ Symbol* firstPass(char *fileDest , char *fileSrc) {
             } 
             else {
                 DC += dataWords;
-                
+                binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep));
+                binRep[binRepIdx].lineType = "data";
+                binRep[binRepIdx].binaryString = strdup(dataToBinary(originalLine , dataWords , lineCounter));
+                binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
+                binRep[binRepIdx].address = DC; // Set address for data
+                binRepIdx++;
                 // If we had a label before, mark it as data
                 if (isLabel && symbolIdx > 0) {
                     symbolTable[symbolIdx-1].labelType = "data";
@@ -103,11 +109,18 @@ Symbol* firstPass(char *fileDest , char *fileSrc) {
         else {
             // Handle instructions
             int codeWords = countWordsForCode(originalLine , lineCounter);
+
             if (codeWords < 0) {
                 errorCode = 1;
             } 
             else {
                 IC += codeWords;
+                binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep));
+                binRep[binRepIdx].lineType = "code";
+                binRep[binRepIdx].binaryString = strdup(codeToBinary(lineForCode));
+                binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
+                binRep[binRepIdx].address = IC; // Set address for code
+                binRepIdx++;
             }
         }
         lineCounter++; // Increment line counter for error messages
@@ -117,33 +130,40 @@ Symbol* firstPass(char *fileDest , char *fileSrc) {
         if (strcmp(symbolTable[i].labelType , "data") == 0)
             symbolTable[i].adress += IC; // Adjust data addresses to follow code
     }
+    for (int j = 0; j < binRepIdx; j++) {
+        if (strcmp(binRep[j].lineType , "data") == 0)
+            binRep[j].address += IC; // Adjust data addresses to follow code
+    }
     fclose(firstPass);
-    printf("First pass completed.");
-    const int ICF = IC; // Instruction Counter Final
-    const int DCF = DC; // Data Counter Final
-    return symbolTable;
+    printf("First pass completed.\n");
+    ICF = IC; // Instruction Counter Final
+    DCF = DC; // Data Counter Final
+    return;
 }
 
 // Simplified isValidLabel function
 int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCounter) {
     // Check length
-    if (strlen(label) > MAX_LABEL_LENGTH) {
-        fprintf(stderr, "Error: Label '%s' exceeds max length (%d)\n", label, MAX_LABEL_LENGTH);
+    int len = strlen(label);
+    if (len > MAX_LABEL_LENGTH) {
+        fprintf(stderr, "Error: Label '%s' exceeds max length (%d).\n", label, MAX_LABEL_LENGTH);
         errorCode = 1;
         return 0;
     }
     
     // Check first character
-    if (!isalpha(label[0])) {
-        fprintf(stderr, "Error: in line: %d Label '%s' must start with a letter\n", lineCounter , label);
-        errorCode = 1;
-        return 0;
+    for (int k = 0; k < len; k++) {
+        if (!(isalpha(label[k]) || isdigit(label[k]))) {
+            fprintf(stderr, "Error: in line: %d unknown character in label %s.\n", lineCounter , label);
+            errorCode = 1;
+            return 0;
+        }
     }
     
     // Check if reserved word
     for (int i = 0; i < COMMANDS_COUNT; i++) {
         if (strcmp(label, commands[i]) == 0) {
-            fprintf(stderr, "Error: in line: %d Label '%s' is a reserved command\n", lineCounter , label);
+            fprintf(stderr, "Error: in line: %d Label '%s' is a reserved command.\n", lineCounter , label);
             errorCode = 1;
             return 0;
         }
@@ -153,7 +173,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
     if (macroTbl) {
         for (int i = 0; macroTbl[i] != NULL; i++) {
             if (strcmp(label, macroTbl[i]) == 0) {
-                fprintf(stderr, "Error: in line: %d Label '%s' is a macro name\n", lineCounter , label);
+                fprintf(stderr, "Error: in line: %d Label '%s' is a macro name.\n", lineCounter , label);
                 errorCode = 1;
                 return 0;
             }
@@ -163,7 +183,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
     // Check for duplicates
     for (int i = 0; i < symbolIdx; i++) {
         if (strcmp(label, symbolTable[i].label) == 0) {
-            fprintf(stderr, "Error: in line: %d Duplicate label '%s'\n", lineCounter , label);
+            fprintf(stderr, "Error: in line: %d Duplicate label '%s'.\n", lineCounter , label);
             errorCode = 1;
             return 0;
         }
@@ -201,7 +221,7 @@ int countWordsForCode(char *line , int lineCounter){
 
     int expectedOperands = getExpectedOperandsCount(instruction);  // Get expected operand count for instruction
     if (expectedOperands == -1) {
-        fprintf(stderr, "Error: in line %d: Unknown instruction '%s'", lineCounter , instruction);
+        fprintf(stderr, "Error: in line %d: Unknown instruction '%s'\n", lineCounter , instruction);
         errorCode = 1;
         return 0;
     }
@@ -265,11 +285,13 @@ int countWordsForData(char *line , int lineCounter){
         char *params = removeStartEndSpaces(pointerToOriginalLine + 5);
         if (*params == ',' || params[strlen(params) - 1] == ',') {
             fprintf(stderr, "Error: in line %d: illegal comma.\n" , lineCounter); // Check for comma errors
+            errorCode = 1;
             return 0;
         }
         for (int i = 0; params[i]; i++) {
             if (params[i] == ',' && params[i + 1] == ',') {
                 fprintf(stderr, "Error: in line %d: illegal comma.\n", lineCounter); // Check for double commas
+                errorCode = 1;
                 return 0;
             }
         }
@@ -278,12 +300,14 @@ int countWordsForData(char *line , int lineCounter){
             token = removeStartEndSpaces(token);
             if (!*token) { // Check for empty value between commas
                 fprintf(stderr, "Error: in line %d: illegal comma.\n", lineCounter);
+                errorCode = 1;
                 return 0;
             }
             char *p = (*token == '+' || *token == '-') ? token + 1 : token; // Validate that token is a number and allow +/- signs
             for (; *p; p++) {
                 if (!isdigit(*p)) {
                     fprintf(stderr, "Error: in line %d: invalid number.\n", lineCounter);
+                    errorCode = 1;
                     return 0;
                 }
             }
@@ -295,6 +319,7 @@ int countWordsForData(char *line , int lineCounter){
         char *param = removeStartEndSpaces(pointerToOriginalLine + 7);
         if (*param++ != '\"') { // Must start with a quote
             fprintf(stderr, "Error: in line %d: missing \" .\n", lineCounter);
+            errorCode = 1;
             return 0;
         }
         while (*param && *param != '\"') { // Count characters until closing quote
@@ -303,6 +328,7 @@ int countWordsForData(char *line , int lineCounter){
         }
         if (*param != '\"') {  // Check for closing quote
             fprintf(stderr, "Error: in line %d: missing \" .\n", lineCounter);
+            errorCode = 1;
             return 0;
         }
         dc++; // for null terminator
@@ -315,6 +341,7 @@ int countWordsForData(char *line , int lineCounter){
         char *close1 = strchr(args, ']');
         if (open1 == NULL || close1 == NULL || close1 < open1) {
             fprintf(stderr, "Error: in line %d: invalid brackets.\n", lineCounter);
+            errorCode = 1;
             return 0;
         }
         // parse columns
@@ -324,12 +351,14 @@ int countWordsForData(char *line , int lineCounter){
         char *close2 = strchr(close1 + 1, ']');
         if (!open2 || !close2 || close2 < open2) {
             fprintf(stderr, "Error: in line %d: invalid brackets.\n", lineCounter);
+            errorCode = 1;
             return 0;
         }
         *close2 = '\0';
         int cols = atoi(open2 + 1);
         if (rows <= 0 || cols <= 0) {
             fprintf(stderr, "Error: in line %d: invalid dimensions.\n", lineCounter);
+            errorCode = 1;
             return 0;
         }
         int expectedCount = rows * cols;
@@ -340,12 +369,14 @@ int countWordsForData(char *line , int lineCounter){
                 token = removeStartEndSpaces(token);
                 if (!*token) { // Check for empty matrix value
                     fprintf(stderr, "Error: in line %d: illegal comma.\n" , lineCounter);
+                    errorCode = 1;
                     return 0;
                 }
                 char *p = (*token == '+' || *token == '-') ? token + 1 : token; // Validate that token is a number
                 for (; *p; p++) {
                     if (!isdigit(*p)) {
                         fprintf(stderr, "Error: in line %d: invalid number.\n", lineCounter);
+                        errorCode = 1;
                         return 0;
                     }
                 }
@@ -356,27 +387,18 @@ int countWordsForData(char *line , int lineCounter){
     }
     else {
         fprintf(stderr, "Error: in line %d: No directive found\n" , lineCounter);
+        errorCode = 1;
         return 0;
     }
     return dc;
 
 }
 
-int getExpectedOperandsCount(char *instr) {
-    if (strcmp(instr, "mov") == 0 || strcmp(instr, "cmp") == 0 ||
-        strcmp(instr, "add") == 0 || strcmp(instr, "sub") == 0 ||
-        strcmp(instr, "lea") == 0) {
-        return 2;
+int getExpectedOperandsCount(char *instruction) {
+    for (int i = 0; i < COMMANDS_COUNT; i++) {
+        if (strcmp(instruction, opcodes[i].opcode) == 0) {
+            return opcodes[i].expectedOperands; // Return expected operand count for instruction
+        }
     }
-    if (strcmp(instr, "clr") == 0 || strcmp(instr, "not") == 0 ||
-        strcmp(instr, "inc") == 0 || strcmp(instr, "dec") == 0 ||
-        strcmp(instr, "jmp") == 0 || strcmp(instr, "bne") == 0 ||
-        strcmp(instr, "jsr") == 0 || strcmp(instr, "red") == 0 ||
-        strcmp(instr, "prn") == 0) {
-        return 1;
-    }
-    if (strcmp(instr, "rts") == 0 || strcmp(instr, "stop") == 0) {
-        return 0;
-    }
-    return -1; // invalid instruction
+    return -1; // Return -1 if instruction not found
 }
