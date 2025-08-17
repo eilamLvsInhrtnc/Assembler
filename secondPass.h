@@ -3,8 +3,10 @@
 
 
 void secondPass(char *);
-
-
+char* objectFileName(char *);
+char* externalFileName(char *);
+char* entryFileName(char *);
+void loadInFiles(char*);
 
 
 #endif
