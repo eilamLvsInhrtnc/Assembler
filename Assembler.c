@@ -7,7 +7,8 @@
 #include "util.h"
 #include "binRep.h"
 #include "secondPass.h"
-int main(int argc, char *argv[]) {
+
+int main(int argc, char *argv[]) { // remove ALL debug prints!!!!!!!!!!!!
 
     if (argc < 2) {  // No input files provided
         fprintf(stderr, "%s: No input files.\n", argv[0]);
@@ -22,7 +23,7 @@ int main(int argc, char *argv[]) {
         errorCode = 0; // Reset error code for each file
         symbolIdx = 0;
         binRepIdx = 0;
-        firstPass(argvAM[fileIdx], argv[fileIdx]); // Perform first pass assembly
+        firstPass(argvAM[fileIdx], argv[fileIdx]); // Perform first pass
         if (errorCode != 0) {
             printf("Error in first pass for file %s.\n", argv[fileIdx]);
             continue; // Skip to next file if error occurred
@@ -37,6 +38,19 @@ int main(int argc, char *argv[]) {
         for (int j = 0; j < binRepIdx; j++) {
             printf("%s", binRep[j].binaryString);
         }
+        secondPass(argvAM[fileIdx]); // Perform second pass
+        if (errorCode != 0) {
+            printf("Error in second pass for file %s.\n", argv[fileIdx]);
+            continue; // Skip to next file if error occurred
+        }
+        for (int j = 0; j < binRepIdx; j++) {
+            printf("%s", binRep[j].binaryString);
+        }
+        printf("ICF = %d, DCF = %d\n", ICF, DCF);
+        secondPass(argvAM[fileIdx]); // Load in files after second pass
+        printf("Second pass completed for file %s.\n", argv[fileIdx]);
+    
+        // free all allocated memory.
     }
     return 0;
 }
