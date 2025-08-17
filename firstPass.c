@@ -31,6 +31,7 @@ void firstPass(char *fileDest , char *fileSrc) {
         // Skip empty lines and comments
         char *originalLine = strdup(line);
         if (line[0] == '\0' || line[0] == ';') {
+            lineCounter++; 
             continue;
         }
 
@@ -56,6 +57,7 @@ void firstPass(char *fileDest , char *fileSrc) {
         }
         else if (strcmp(token, ".entry") == 0) {
             // Handled in second pass
+            entryCount++;
             continue;
         }
 
@@ -92,13 +94,13 @@ void firstPass(char *fileDest , char *fileSrc) {
                 errorCode = 1;
             } 
             else {
-                DC += dataWords;
                 binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep));
                 binRep[binRepIdx].lineType = "data";
                 binRep[binRepIdx].binaryString = strdup(dataToBinary(originalLine , dataWords , lineCounter));
                 binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
                 binRep[binRepIdx].address = DC; // Set address for data
                 binRepIdx++;
+                DC += dataWords;
                 // If we had a label before, mark it as data
                 if (isLabel && symbolIdx > 0) {
                     symbolTable[symbolIdx-1].labelType = "data";
@@ -114,13 +116,13 @@ void firstPass(char *fileDest , char *fileSrc) {
                 errorCode = 1;
             } 
             else {
-                IC += codeWords;
                 binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep));
                 binRep[binRepIdx].lineType = "code";
                 binRep[binRepIdx].binaryString = strdup(codeToBinary(lineForCode));
                 binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
                 binRep[binRepIdx].address = IC; // Set address for code
                 binRepIdx++;
+                IC += codeWords;
             }
         }
         lineCounter++; // Increment line counter for error messages
@@ -135,6 +137,11 @@ void firstPass(char *fileDest , char *fileSrc) {
             binRep[j].address += IC; // Adjust data addresses to follow code
     }
     fclose(firstPass);
+    if (IC + DC > TOTAL_WORDS) {
+        fprintf(stderr, "Error: Total words (%d) exceed limit (%d).\n", IC + DC, TOTAL_WORDS);
+        errorCode = 1;
+        return;
+    }
     printf("First pass completed.\n");
     ICF = IC; // Instruction Counter Final
     DCF = DC; // Data Counter Final
