@@ -284,9 +284,9 @@ char* codeToBinary(char *line) {
         operand2 = strtok(NULL, ",");
     }
 
-    operand1 = removeStartEndSpaces(operand1); // Trim leading spaces
-    operand2 = removeStartEndSpaces(operand2); // Trim leading spaces
-
+    if (operand1) while (*operand1 == ' ' || *operand1 == '\t') operand1++;
+    if (operand2) while (*operand2 == ' ' || *operand2 == '\t') operand2++;
+    
     int srcAddr = (operand1) ? getAdressType(operand1) : 0; // Determine source address type
     int destAddr = (operand2) ? getAdressType(operand2) : 0; // Determine destination address type
     if (op->expectedOperands == 1) { // If only one operand is expected
