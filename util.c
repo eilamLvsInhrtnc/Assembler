@@ -4,18 +4,18 @@
 #include <ctype.h>
 #include "util.h"
 
-int errorCode = 0;
-int symbolIdx = 0;
-int binRepIdx = 0;
-int ICF = 0;
-int DCF = 0;
-int extCount = 0;
-int entryCount = 0;
-Symbol *symbolTable = NULL;
-Symbol *extTable = NULL;
-BinRep *binRep = NULL;
+int errorCode = 0; // irinitializing global error code
+int symbolIdx = 0; // itinitializing symbolTable index
+int binRepIdx = 0; // initializing binRep index
+int ICF = 0; // initializing final instruction counter
+int DCF = 0; // initializing final data counter
+int extCount = 0; // initializing external symbols count
+int entryCount = 0; // initializing entry symbols count
+Symbol *symbolTable = NULL; // initializing symbol table
+Symbol *extTable = NULL; // initializing external symbols table
+BinRep *binRep = NULL; // initializing binary representation table
 
-const Opcode opcodes[16] = {
+const Opcode opcodes[16] = { // initializing opcode map.
     { "mov",  "0000" , 2 , "0123" , "123"},
     { "cmp",  "0001" , 2 , "0123" , "0123"},
     { "add",  "0010" , 2 , "0123" , "123"},
@@ -33,7 +33,7 @@ const Opcode opcodes[16] = {
     { "rts",  "1110" , 0 , "-" , "-"},
     { "stop", "1111" , 0 , "-" , "-"}
 };
-const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "lea" , "clr" ,"not" , "inc" , "dec" , "jmp" , "bne", "jsr" ,"red" ,"prn" , "rts" , "stop"};
+const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "lea" , "clr" ,"not" , "inc" , "dec" , "jmp" , "bne", "jsr" ,"red" ,"prn" , "rts" , "stop"}; // initializing commands map.
 
 /**
  * @param str string to trim
@@ -87,33 +87,52 @@ char* getLineFromFile(FILE* fp, char line[], char* fileName, int *lineCounter) {
     }
     return line;
 }
-// Convert number to 8-bit binary string (two's complement for negative)
+/**
+ * @param num number to convert
+ * @param bin buffer to hold binary string
+ * 
+ * Convert number to 8-bit binary string 
+ */
 void decToBinary8Bit(int num, char* bin) {
-    unsigned char val = (unsigned char)num;
     for (int i = 7; i >= 0; i--) {
-        bin[7 - i] = ((val >> i) & 1) ? '1' : '0';
+        bin[7 - i] = ((num >> i) & 1) ? '1' : '0';
     }
     bin[8] = '\0';
 }
 
-// Convert int val (0-1023) to 10-bit binary string in bin buffer (must hold 11 chars)
-void intToBinary10Bit(int val , char* bin) {
+/**
+ * @param num number to convert
+ * @param bin buffer to hold binary string
+ * 
+ * Convert number to 10-bit binary string 
+ */
+void intToBinary10Bit(int num , char* bin) {
     for (int i = 9; i >= 0; i--) {
-        bin[9 - i] = ((val >> i) & 1) ? '1' : '0';
+        bin[9 - i] = ((num >> i) & 1) ? '1' : '0';
     }
     bin[10] = '\0';
 }
-
+/**
+ * @param binaryString 10-bit binary string
+ * @param buffer buffer to hold base 4 string
+ * 
+ * Convert binaryString to 5-bit base 4 string 
+ */
 void binary10BitToBase4FiveBit(char *binaryString , char *buffer) {
     for (int i = 0; i < 5; i++) {
         char b1 = binaryString[2*i];
         char b2 = binaryString[2*i + 1];
         int value = (b1 - '0') * 2 + (b2 - '0');
-        buffer[i] = 'a' + value; // map 0->a, 1->b, 2->c, 3->d
+        buffer[i] = 'a' + value;
     }
     buffer[5] = '\0';
 }
-
+/**
+ * @param number number to convert
+ * @param buffer buffer to hold base 4 string
+ * 
+ * Convert number to 4-bit base 4 string
+ */
 void decToBase4FourBits(int number, char *buffer) {
     char nums[4] = {'a','b','c','d'};
     for (int i = 3; i >= 0; i--) {
