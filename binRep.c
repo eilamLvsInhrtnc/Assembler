@@ -317,7 +317,7 @@ char* codeToBinary(char *line) {
  * the type of data it contains and then converting it accordingly.
  */
 char* dataToBinary(char *line , int words , int lineCounter) {
-    char* binaryString = calloc((MAX_WORDS_FOR_CODE)*10, sizeof(char)); // Adjust size as needed
+    char *binaryString = (char *)malloc((words*BITS_IN_WORD + NULL_TERMINATOR_LENGTH)*sizeof(char)); // Adjust size as needed
     if (!binaryString) return NULL;
 
     char *lineCopy = strdup(line);
