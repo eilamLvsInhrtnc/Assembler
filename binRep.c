@@ -7,11 +7,19 @@
 #include "util.h"
 #include "binRep.h"
 
+/**
+ * @param op the opcode to get
+ * @param srcAddr the source address
+ * @param destAddr the destination address
+ * @param bin the output binary string
+ *
+ * Builds the first word of the code in binary representation.
+ */
 void buildFirstWord(const Opcode* op, int srcAddr, int destAddr, char* bin) {
     int opcodeNum = 0;
     for (int i = 0; i < 4; i++) {
-        opcodeNum <<= 1;
-        if (op->binaryRep[i] == '1') opcodeNum |= 1;
+        opcodeNum <<= 1; // Shift left to make room for the next bit
+        if (op->binaryRep[i] == '1') opcodeNum |= 1; // Get opcode number
     }
     int val = 0;
     val |= (opcodeNum << 6); // put the opcode number in bits 9-6
@@ -21,14 +29,25 @@ void buildFirstWord(const Opcode* op, int srcAddr, int destAddr, char* bin) {
     intToBinary10Bit(val, bin); // number to binary representation
 }
 
-// Pack immediate value + 2 bits code type = 00
+/**
+ * @param num the number to pack as immediate
+ * @param bin the output binary string
+ *
+ * Packs an immediate value into a binary representation.
+ */
 void packImmediate(int num, char* bin) {
     char val8 = (char)num; // 8 bits for the number
     int val = val8 << 2; // bits 1-0 = 00
     intToBinary10Bit(val, bin); // number to binary representation
 }
 
-// Pack two registers into one word: 4 bits src (bits 9-6), 4 bits dest (bits 5-2), 2 bits code 00
+/**
+ * @param regSrc the source register
+ * @param regDest the destination register
+ * @param bin the output binary string
+ * 
+ * Packs two registers into a binary representation.
+ */
 void packTwoRegisters(char* regSrc, char* regDest, char* bin) {
     int rSrc = (regSrc && regSrc[0] == 'r') ? (regSrc[1] - '0') : 0;
     int rDest = (regDest && regDest[0] == 'r') ? (regDest[1] - '0') : 0;
@@ -38,36 +57,64 @@ void packTwoRegisters(char* regSrc, char* regDest, char* bin) {
     // bits 1-0 = 00 absolute
     intToBinary10Bit(val, bin); // number to binary representation
 }
-
-// Pack single register operand: 4 bits reg (bits 9-6), 4 bits zero (bits 5-2), 2 bits code 00
+/**
+ * @param reg the register to pack
+ * @param bin the output binary string
+ * 
+ * Packs a single register into a binary representation.
+ */
 void packSingleRegister(char* reg, char* bin) {
-    int r = (reg && reg[0] == 'r') ? (reg[1] - '0') : 0;
-    int val = 0;
+    int r = (reg && reg[0] == 'r') ? (reg[1] - '0') : 0; // Get register number
+    int val = 0; 
     val |= (r << 6); // bits 9-6 = register number
-    // bits 5-2 zero
-    // bits 1-0 = 00 absolute
-    intToBinary10Bit(val, bin);
+    // bits 5-2 = 00
+    intToBinary10Bit(val, bin); // number to binary representation
 }
 
-// Extract matrix registers inside brackets: LABEL[rX][rY]
+/**
+ * @param operand the operand string
+ * @param regA the first register
+ * @param regB the second register
+ * 
+ * Extracts matrix registers from the operand string.
+ * 
+ */
 void extractMatrixRegs(char* operand, char* regA, char* regB) {
-    char* start = strchr(operand, '[');
-    if (!start) { regA[0] = '\0'; regB[0] = '\0'; return; }
-    char* end = strchr(start, ']');
-    if (!end) { regA[0] = '\0'; regB[0] = '\0'; return; }
-    int lenA = end - (start + 1);
-    strncpy(regA, start + 1, lenA);
-    regA[lenA] = '\0';
+    char* start = strchr(operand, '['); // Find the start of the first bracket
+    if (!start) {
+        regA[0] = '\0'; // No matrix registers found
+        regB[0] = '\0'; // No matrix registers found
+        return; 
+    }
+    char* end = strchr(start, ']'); // Find the end of the first bracket
+    if (!end) { 
+        regA[0] = '\0'; 
+        regB[0] = '\0'; 
+        return; 
+    }
+    int lengthA = end - (start + 1); // Length of the first matrix register
+    strncpy(regA, start + 1, lengthA); // Copy the first matrix register
+    regA[lengthA] = '\0'; // Null terminate the string
 
-    char* start2 = strchr(end + 1, '[');
-    if (!start2) { regB[0] = '\0'; return; }
-    char* end2 = strchr(start2, ']');
-    if (!end2) { regB[0] = '\0'; return; }
-    int lenB = end2 - (start2 + 1);
-    strncpy(regB, start2 + 1, lenB);
-    regB[lenB] = '\0';
+    char* start2 = strchr(end + 1, '['); // Find the start of the second bracket
+    if (!start2) { 
+        regB[0] = '\0'; 
+        return; 
+    }
+    char* end2 = strchr(start2, ']'); // Find the end of the second bracket
+    if (!end2) { 
+        regB[0] = '\0'; 
+        return; 
+    }
+    int lengthB = end2 - (start2 + 1); // Length of the second matrix register
+    strncpy(regB, start2 + 1, lengthB); // Copy the second matrix register
+    regB[lengthB] = '\0';
 }
-
+/**
+ * @param operand the operand to get his address type
+ * 
+ * @return the address type: 0=immediate, 1=label, 2=matrix, 3=register, -1=error
+ */
 int getAdressType(char *operand) {
     if (!operand) return -1;
     if (operand[0] == '#') return 0; // Immediate
@@ -78,16 +125,29 @@ int getAdressType(char *operand) {
     }
     return 1; // Label/direct
 }
-
+/**
+ * @param opcode the opcode to find
+ * 
+ * @return the matching opcode, or NULL if not found
+ */
 const Opcode* getOpcode(char* opcode) {
     for (int i = 0; i < COMMANDS_COUNT; i++) {
-        if (strcmp(opcode, opcodes[i].opcode) == 0) {
-            return &opcodes[i];
+        if (strcmp(opcode, opcodes[i].opcode) == 0) { // Compare opcode strings
+            return &opcodes[i]; // Return matching opcode
         }
     }
     return NULL;
 }
-
+/**
+ * @param operand1 first operand
+ * @param operand2 second operand
+ * @param srcAddr source address type
+ * @param destAddr destination address type
+ * @param outputBinary output binary string
+ * @param maxLen maximum length of the output binary string
+ *
+ * This function appends the binary representation of the operands to the outputBinary string.
+ */
 void appendOperand(char* operand1, char* operand2, int srcAddr, int destAddr, char* outputBinary, int maxLen) {
     char buffer[20];
 
@@ -145,18 +205,18 @@ void appendOperand(char* operand1, char* operand2, int srcAddr, int destAddr, ch
     if (operand2) {
         if (destAddr == 3) { // single register
             packTwoRegisters("r0" , operand2 , buffer); // pack with 0000.
-            strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1);
-            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1);
+            strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1); // Append packed register to output
+            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1); // Add newline after packed register
         }
         else if (destAddr == 0) { // immediate
             int num = atoi(operand2 + 1);
-            packImmediate(num, buffer);
-            strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1);
-            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1);
+            packImmediate(num, buffer); // Pack immediate value
+            strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1); // Append packed immediate to output
+            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1); // Add newline after packed immediate
         }
         else if (destAddr == 1) { // label
-            strncat(outputBinary, operand2, maxLen - strlen(outputBinary) - 1);
-            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1);
+            strncat(outputBinary, operand2, maxLen - strlen(outputBinary) - 1); // Append label to output
+            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1); // Add newline after label
         }
         else if (destAddr == 2) { // matrix
             char label[100];
@@ -166,28 +226,35 @@ void appendOperand(char* operand1, char* operand2, int srcAddr, int destAddr, ch
                 i++;
             }
             label[i] = '\0';
-            strncat(outputBinary, label, maxLen - strlen(outputBinary) - 1);
-            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1);
+            strncat(outputBinary, label, maxLen - strlen(outputBinary) - 1); // Append matrix label to output
+            strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1); // Add newline after matrix label
 
             char reg1[10], reg2[10];
-            extractMatrixRegs(operand2, reg1, reg2);
+            extractMatrixRegs(operand2, reg1, reg2); // Extract matrix registers
             if (reg1[0] && reg2[0]) {
-                packTwoRegisters(reg1, reg2, buffer);
-                strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1);
-                strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1);
+                packTwoRegisters(reg1, reg2, buffer); // Pack matrix registers
+                strncat(outputBinary, buffer, maxLen - strlen(outputBinary) - 1); // Append packed registers to output
+                strncat(outputBinary, "\n", maxLen - strlen(outputBinary) - 1); // Add newline after packed registers
             }
             else {
-                strncat(outputBinary, "0000000000\n", maxLen - strlen(outputBinary) - 1);
+                strncat(outputBinary, "0000000000\n", maxLen - strlen(outputBinary) - 1); // Append default matrix registers
             }
         }
     }
 }
-
+/**
+ * @param line the line to convert
+ * 
+ * @return the binary representation of the line
+ *
+ * the function converts the line into its binary representation by checking
+ * the type of "code" it contains and then converting it accordingly.
+ */
 char* codeToBinary(char *line) {
-    char* binaryString = calloc((MAX_WORDS_FOR_CODE)*10, sizeof(char));
+    char* binaryString = calloc((MAX_WORDS_FOR_CODE)*10, sizeof(char)); // Adjust size as needed
     if (!binaryString) return NULL;
 
-    char* lineCopy = strdup(line);
+    char* lineCopy = strdup(line); 
     if (!lineCopy) {
         free(binaryString);
         return NULL;
@@ -217,12 +284,12 @@ char* codeToBinary(char *line) {
         operand2 = strtok(NULL, ",");
     }
 
-    if (operand1) while (*operand1 == ' ' || *operand1 == '\t') operand1++;
-    if (operand2) while (*operand2 == ' ' || *operand2 == '\t') operand2++;
+    operand1 = removeStartEndSpaces(operand1); // Trim leading spaces
+    operand2 = removeStartEndSpaces(operand2); // Trim leading spaces
 
-    int srcAddr = (operand1) ? getAdressType(operand1) : 0;
-    int destAddr = (operand2) ? getAdressType(operand2) : 0;
-    if (op->expectedOperands == 1) {
+    int srcAddr = (operand1) ? getAdressType(operand1) : 0; // Determine source address type
+    int destAddr = (operand2) ? getAdressType(operand2) : 0; // Determine destination address type
+    if (op->expectedOperands == 1) { // If only one operand is expected
         destAddr = srcAddr; // The only operand is destination
         srcAddr = 0;        // No source
         operand2 = operand1;
@@ -230,18 +297,27 @@ char* codeToBinary(char *line) {
     }
 
     char firstWord[11];
-    buildFirstWord(op, srcAddr, destAddr, firstWord);
-    strcat(binaryString, firstWord);
-    strcat(binaryString, "\n");
+    buildFirstWord(op, srcAddr, destAddr, firstWord); // Build the first word of the instruction
+    strcat(binaryString, firstWord); // Add first word to binary string
+    strcat(binaryString, "\n"); // Add newline after first word
 
-    appendOperand(operand1, operand2, srcAddr, destAddr, binaryString, 2048);
+    appendOperand(operand1, operand2, srcAddr, destAddr, binaryString, 2048); // Append operands to binary string
 
     free(lineCopy);
     return binaryString;
 }
-
+/**
+ * @param line the line to convert
+ * @param words the number of words in the line
+ * @param lineCounter the line number in the source file
+ * 
+ * @return the binary representation of the line
+ *
+ * the function converts the line into its binary representation by checking
+ * the type of data it contains and then converting it accordingly.
+ */
 char* dataToBinary(char *line , int words , int lineCounter) {
-    char *binaryString = (char *)malloc((words*BITS_IN_WORD + NULL_TERMINATOR_LENGTH)*sizeof(char)); // Adjust size as needed
+    char* binaryString = calloc((MAX_WORDS_FOR_CODE)*10, sizeof(char)); // Adjust size as needed
     if (!binaryString) return NULL;
 
     char *lineCopy = strdup(line);
@@ -252,7 +328,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
 
     lineCopy[strcspn(lineCopy, "\n")] = 0;  // Remove newline char
 
-    char *dataOrlabel = strtok(lineCopy, " \t");
+    char *dataOrlabel = strtok(lineCopy, " \t"); // A string which we later check whether it's a data directive or a label
 
     if (!dataOrlabel) {
         free(lineCopy);
@@ -260,12 +336,12 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         return NULL;
     }
 
-    int isData = strcmp(dataOrlabel, ".data") == 0;
-    int isString = strcmp(dataOrlabel, ".string") == 0;
-    int isMat = strcmp(dataOrlabel, ".mat") == 0;
+    int isData = strcmp(dataOrlabel, ".data") == 0; // Check if it's a .data
+    int isString = strcmp(dataOrlabel, ".string") == 0; // Check if it's a .string
+    int isMat = strcmp(dataOrlabel, ".mat") == 0; // Check if it's a .mat
 
-    if (!isData && !isString && !isMat) {
-        dataOrlabel = strtok(NULL, " \t");
+    if (!isData && !isString && !isMat) { // If it's not a data, string, or matrix directive, then it must be a label
+        dataOrlabel = strtok(NULL, " \t"); // If it's a label then we advance to the next token to see whether it's .data or .string or .mat or none of them
         if (!dataOrlabel) {
             free(lineCopy);
             free(binaryString);
@@ -276,26 +352,26 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         isMat = strcmp(dataOrlabel, ".mat") == 0;
     }
 
-    if (isData) {
-        char *currentNumber = strtok(NULL, ",");
-        char *ptrBinaryString = binaryString;
+    if (isData) { // Handle .data
+        char *currentNumber = strtok(NULL, ","); 
+        char *ptrBinaryString = binaryString; // Pointer for building binary string
         char *lineCopyData = strdup(lineCopy);
 
         while (currentNumber != NULL) {
-            char *value = removeStartEndSpaces(currentNumber);
-            int number = atoi(value);
+            char *value = removeStartEndSpaces(currentNumber); // Removing spaces
+            int number = atoi(value); // Turning string to integer so we can use it in the intToBinary10Bit function
             char binaryNumber[11];
             intToBinary10Bit(number , binaryNumber);
 
             for (int i = 0; i < 10; i++) {
-                *ptrBinaryString++ = binaryNumber[i];
+                *ptrBinaryString++ = binaryNumber[i]; // Copy binary number to string
             }
             *ptrBinaryString++ = '\n';
             currentNumber = strtok(NULL, ",");
         }
         *ptrBinaryString = '\0';
     } 
-    else if(isString){
+    else if(isString){ // Handle .string
         char *ptrBinaryString = binaryString;
         char *lineCopyString = strdup(line);
         char *stringStart = lineCopyString;
@@ -339,7 +415,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
             return NULL;
         }
     }
-    else if (isMat) { // Handle matrix directive
+    else if (isMat) { // Handle .mat
         char *lineCopyMat = strdup(line);
         if (!lineCopyMat) {
             free(binaryString);
@@ -359,7 +435,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         int rows = 0, cols = 0;
 
         // Find rows count
-        char *openBracketRows = strchr(afterMat, '[');
+        char *openBracketRows = strchr(afterMat, '['); // Find opening bracket for rows
         if (!openBracketRows) {
             free(lineCopyMat);
             free(binaryString);
@@ -367,7 +443,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         }
         rows = atoi(openBracketRows + 1);
 
-        char *closeBracketRows = strchr(openBracketRows, ']');
+        char *closeBracketRows = strchr(openBracketRows, ']'); // Find closing bracket for rows
         if (!closeBracketRows) {
             free(lineCopyMat);
             free(binaryString);
@@ -375,7 +451,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         }
 
         // Find columns count
-        char *openBracketCols = strchr(closeBracketRows + 1, '[');
+        char *openBracketCols = strchr(closeBracketRows + 1, '['); // Find opening bracket for columns
         if (!openBracketCols) {
             free(lineCopyMat);
             free(binaryString);
@@ -383,7 +459,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
         }
         cols = atoi(openBracketCols + 1);
 
-        char *closeBracketCols = strchr(openBracketCols, ']');
+        char *closeBracketCols = strchr(openBracketCols, ']'); // Find closing bracket for columns
         if (!closeBracketCols) {
             free(lineCopyMat);
             free(binaryString);
@@ -392,15 +468,15 @@ char* dataToBinary(char *line , int words , int lineCounter) {
 
         // Start of matrix values
         char *valuesStart = closeBracketCols + 1;
-        int expectedCount = rows * cols;
+        int expectedCount = rows * cols; 
         int count = 0;
 
         char *value = strtok(valuesStart, ", \t");
         while(value != NULL) {
-            value = removeStartEndSpaces(value);
-            int number = atoi(value);
+            value = removeStartEndSpaces(value); // trim
+            int number = atoi(value); // convert to integer
             char binaryNumber[11]; 
-            intToBinary10Bit(number , binaryNumber);
+            intToBinary10Bit(number , binaryNumber); 
             for (int i = 0; i < 10; i++) {
                 *ptrBinaryString++ = binaryNumber[i];
             }
