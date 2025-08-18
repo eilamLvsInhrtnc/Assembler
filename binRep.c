@@ -289,11 +289,48 @@ char* codeToBinary(char *line) {
     
     int srcAddr = (operand1) ? getAdressType(operand1) : 0; // Determine source address type
     int destAddr = (operand2) ? getAdressType(operand2) : 0; // Determine destination address type
+
     if (op->expectedOperands == 1) { // If only one operand is expected
+        if (operand2 != NULL) { // if only one expected but there are two.
+            fprintf(stderr, "Error: in line %d: Instruction '%s' expects 1 operand but got 2.\n", line ,operation);
+            errorCode = 1;
+            return NULL; // Error: too many operands
+        }
         destAddr = srcAddr; // The only operand is destination
         srcAddr = 0;        // No source
         operand2 = operand1;
         operand1 = NULL;    // So appendOperand knows it's only a dest
+    }
+
+    if (operand1 != NULL) { // Check addressing modes for operand 1
+        char *addressingModes = op->operandN1legalAddressingModes;
+        int found = 0;
+        for (int i = 0; i < strlen(addressingModes); i++) {
+            if (addressingModes[i] == '0' + srcAddr) {
+                found = 1; // Valid addressing mode found
+                break; // Valid addressing mode found
+            }
+        }
+        if (found == 0) {                
+            fprintf(stderr, "Error: Illegal addressing mode for operand of instruction '%s'.\n" ,operation);
+            errorCode = 1;
+            return NULL; // Error: illegal addressing mode
+        }
+    }
+    if (operand2 != NULL) { // check addressing modes for operand 2
+        char *addressingModes = op->operandN2legalAddressingModes;
+        int found = 0;
+        for (int i = 0; i < strlen(addressingModes); i++) {
+            if (addressingModes[i] == '0' + destAddr) {
+                found = 1; // Valid addressing mode found
+                break; // Valid addressing mode found
+            }
+        }
+        if (found == 0) {
+            fprintf(stderr, "Error: Illegal addressing mode for operand of instruction '%s'.\n" ,operation);
+            errorCode = 1;
+            return NULL; // Error: illegal addressing mode
+        }
     }
 
     char firstWord[11];
