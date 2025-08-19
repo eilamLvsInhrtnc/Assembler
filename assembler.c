@@ -50,7 +50,6 @@ int main(int argc, char *argv[]) {
         free(symbolTable);
         free(binRep);
         free(extTable);
-        free(opcodes);
     }
     return 0;
 }
