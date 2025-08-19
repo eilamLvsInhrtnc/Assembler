@@ -1,3 +1,8 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *firstPass.c - first pass for assembler.c
+    *this file handles the creation of the symbol table and partially creates the binary representation of the code.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
