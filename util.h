@@ -1,3 +1,7 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *util.h - header file for util.c
+*/
 #ifndef UTIL_H
 #define UTIL_H
 
