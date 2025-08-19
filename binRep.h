@@ -1,3 +1,7 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *binRep.h - header file for binRep.c
+*/
 #ifndef BINREP_H
 #define BINREP_H
 
