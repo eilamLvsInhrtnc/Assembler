@@ -1,3 +1,8 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *preAsm.c - pre-assembler for assembler.c
+    *this file handles macro spreading in the input files and writes to the .am files.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
