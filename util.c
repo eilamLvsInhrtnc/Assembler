@@ -1,11 +1,16 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *util.c - utility functions for assembler.c
+    *this file has utility functions that are used throughout the project.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "util.h"
 
-int errorCode = 0; // irinitializing global error code
-int symbolIdx = 0; // itinitializing symbolTable index
+int errorCode = 0; // initializing global error code
+int symbolIdx = 0; // initializing symbolTable index
 int binRepIdx = 0; // initializing binRep index
 int ICF = 0; // initializing final instruction counter
 int DCF = 0; // initializing final data counter
