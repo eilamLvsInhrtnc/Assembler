@@ -1,3 +1,7 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *firstPass.h - header file for firstPass.c
+*/
 #ifndef FIRSTPASS_H
 #define FIRSTPASS_H
 
