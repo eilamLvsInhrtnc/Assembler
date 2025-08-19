@@ -1,3 +1,9 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *assembler.c - the main file for the assembler project.
+    *this file supervises the assembler process,
+    *including the first and second passes, and handles command line arguments. 
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +14,7 @@
 #include "binRep.h"
 #include "secondPass.h"
 
-int main(int argc, char *argv[]) { // remove ALL debug prints!!!!!!!!!!!!
+int main(int argc, char *argv[]) {
 
     if (argc < 2) {  // No input files provided
         fprintf(stderr, "%s: No input files.\n", argv[0]);
@@ -32,25 +38,19 @@ int main(int argc, char *argv[]) { // remove ALL debug prints!!!!!!!!!!!!
             printf("No symbols found in file %s.\n", argv[fileIdx]);
             return 1;
         }
-        for (int i = 0; i < symbolIdx; i++) {
-            printf("Symbol: %s, Address: %d, Type: %s\n", symbolTable[i].label, symbolTable[i].adress, symbolTable[i].labelType);
-        }
-        for (int j = 0; j < binRepIdx; j++) {
-            printf("%s", binRep[j].binaryString);
-        }
         secondPass(argvAM[fileIdx]); // Perform second pass
         if (errorCode != 0) {
             printf("Error in second pass for file %s.\n", argv[fileIdx]);
             continue; // Skip to next file if error occurred
         }
-        for (int j = 0; j < binRepIdx; j++) {
-            printf("%s", binRep[j].binaryString);
-        }
-        printf("ICF = %d, DCF = %d\n", ICF, DCF);
         secondPass(argvAM[fileIdx]); // Load in files after second pass
         printf("Second pass completed for file %s.\n", argv[fileIdx]);
     
         // free all allocated memory.
+        free(symbolTable);
+        free(binRep);
+        free(extTable);
+        free(opcodes);
     }
     return 0;
 }
