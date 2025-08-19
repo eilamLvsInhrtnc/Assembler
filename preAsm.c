@@ -42,11 +42,7 @@ int spreadMacros(char* fileDest , char* fileSrc , char*** macroTblPtr) {
         return 1; // error code.
     }
     copyIntoFile(dest , src , macrIdx, macroTbl, macroContent , fileSrc); // copy files to output with macro spread
-
-    if (macroTbl != NULL) { // free not needed memory
-        for (int i = 0; i < macrIdx; i++) free(macroTbl[i]);
-        free(macroTbl);
-    }
+    fclose(src); // close input file after copying
     if (macroContent != NULL) { // free not needed memory
         for (int i = 0; i < macrIdx; i++) free(macroContent[i]);
         free(macroContent);
@@ -143,7 +139,6 @@ int loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, FILE* src 
         }
         lineCounter++; // Increment line counter for error messages
     }
-    fclose(src); // close current file.
     *macroTblPtr = macroTbl; // return the filled table
     *macroContentPtr = macroContent; // return the filled table
     return macrIdx;
