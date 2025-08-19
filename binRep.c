@@ -1,3 +1,8 @@
+/*
+    *Eilam Gazit , Eyal Hets Cohen.
+    *binRep.c - binary representation functions for assembler.c
+    *this file has functions that build the binary representation of the lines in the source files.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
