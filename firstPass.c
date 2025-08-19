@@ -273,6 +273,11 @@ int countWordsForCode(char *line , int lineCounter){
     return words;
 }
 
+/**
+ * @param op The opcode structure for the instruction.
+ * 
+ * @return 0 if op isnt a register, 1 if it is a register.
+ */
 int isReg(char *op) {
     if (op[0] != 'r') return 0;
     if (!isdigit(op[1])) return 0;
@@ -412,6 +417,10 @@ int countWordsForData(char *line , int lineCounter){
 
 }
 
+/**
+ * @param instruction The instruction to check.
+ * @return The expected number of operands for the instruction, or -1 if the instruction is
+ */
 int getExpectedOperandsCount(char *instruction) {
     for (int i = 0; i < COMMANDS_COUNT; i++) {
         if (strcmp(instruction, opcodes[i].opcode) == 0) {
