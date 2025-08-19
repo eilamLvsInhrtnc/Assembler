@@ -135,8 +135,10 @@ void firstPass(char *fileDest , char *fileSrc) {
             }
         }
         lineCounter++; // Increment line counter for error messages
+        free(lineForCode); // Free line copy
+        free(originalLine); // Free original line copy
     }
-
+    free(macroTbl); // Free macro table
     for (int i = 0; i < symbolIdx; i++) {
         if (strcmp(symbolTable[i].labelType , "data") == 0)
             symbolTable[i].adress += IC; // Adjust data addresses to follow code
