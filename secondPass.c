@@ -5,6 +5,12 @@
 #include "util.h"
 #include "secondPass.h"
 
+/**
+ * @param fileSrc The source file name
+ * 
+ * This function performs the second pass of the assembler, processing the
+ * instructions and generating the final machine code.
+ */
 void secondPass(char *fileSrc) {
     printf("Commencing second pass...\n");
     FILE *secPass = fopen(fileSrc, "r");
@@ -16,9 +22,9 @@ void secondPass(char *fileSrc) {
     char line[MAX_IN_LINE];
     int lineCounter = 1;
 
-    while(getLineFromFile(secPass , line , fileSrc , &lineCounter) != NULL) {
+    while(getLineFromFile(secPass , line , fileSrc , &lineCounter) != NULL) { // Read each line
         char *lineCopy = strdup(line);
-        if (line[0] == '\0' || line[0] == ';') {
+        if (line[0] == '\0' || line[0] == ';') { // Skip empty lines and comments
             lineCounter++;
             continue; // Skip empty lines and comments
         }
@@ -47,9 +53,9 @@ void secondPass(char *fileSrc) {
         for (int i = 0; i < binRepIdx; i++) {
             if (binRep[i].lineNumber == lineCounter) {
                 // Process multi-line binaryString (split by '\n')
-                char *temp = strdup(binRep[i].binaryString);
+                char *temp = strdup(binRep[i].binaryString); // Duplicate binary string for processing
                 char *token = strtok(temp, "\n");
-                char newBinary[MAX_WORDS_FOR_CODE * (BITS_IN_WORD + NULL_TERMINATOR_LENGTH)];
+                char newBinary[MAX_WORDS_FOR_CODE * (BITS_IN_WORD + NULL_TERMINATOR_LENGTH)]; // Buffer for new binary string
                 newBinary[0] = '\0';
                 int lineCount = 0;
                 while (token != NULL) {
@@ -62,8 +68,8 @@ void secondPass(char *fileSrc) {
                                 char binary[BITS_IN_WORD + NULL_TERMINATOR_LENGTH];
                                 if (strcmp(symbolTable[j].labelType, "external") == 0) {
                                     decToBinary8Bit(0 , binary); // extern → 0
-                                    extTable = realloc(extTable, (extCount + 1) * sizeof(Symbol));
-                                    extTable[extCount].label = strdup(symbolTable[j].label);
+                                    extTable = realloc(extTable, (extCount + 1) * sizeof(Symbol)); // Reallocate memory for external table
+                                    extTable[extCount].label = strdup(symbolTable[j].label); // Copy label to external table
                                     extTable[extCount].adress = binRep[i].address + lineCount; // Externs have no address in the second pass
                                     extTable[extCount].labelType = "external";
                                     extCount++;
@@ -103,11 +109,15 @@ void secondPass(char *fileSrc) {
     loadInFiles(fileSrc); // Load in files after second pass
     printf("Second pass completed.\n");
 }
-
+/**
+ * @param fileSrc The source file name
+ *
+ * The function loads the object, external and entry files generated during the second pass.
+ */
 void loadInFiles(char *fileSrc) {
     char buffer[6];
-    char *objectFile = objectFileName(fileSrc);
-    FILE *obFile = fopen(objectFile, "w");
+    char *objectFile = objectFileName(fileSrc); // Get object file name
+    FILE *obFile = fopen(objectFile, "w"); // Open object file for writing
     if (obFile == NULL) {
         fprintf(stderr, "Error: unable to open %s for writing.\n", objectFile);
         fclose(obFile);
@@ -122,7 +132,7 @@ void loadInFiles(char *fileSrc) {
     fputs("\n", obFile);
     for (int i = 0; i < binRepIdx; i++) {
         if (strcmp(binRep[i].lineType, "code") == 0) {
-            char *lineForStrtok = strdup(binRep[i].binaryString);
+            char *lineForStrtok = strdup(binRep[i].binaryString); 
             char *token = strtok(lineForStrtok, "\n");
             int lineCount = 0;
             while (token != NULL) {
@@ -156,8 +166,8 @@ void loadInFiles(char *fileSrc) {
     }
     fclose(obFile);
     if (extCount > 0) {
-        char *externalFile = externalFileName(fileSrc);
-        FILE *extFile = fopen(externalFile, "w");
+        char *externalFile = externalFileName(fileSrc); // Get external file name
+        FILE *extFile = fopen(externalFile, "w"); // Open external file for writing
         if (extFile == NULL) {
             fprintf(stderr, "Error: unable to open %s for writing.\n", objectFile);
             fclose(extFile);
@@ -174,8 +184,8 @@ void loadInFiles(char *fileSrc) {
         fclose(extFile);
     }
     if (entryCount > 0){
-        char *entryFile = entryFileName(fileSrc);
-        FILE *entFile = fopen(entryFile, "w");
+        char *entryFile = entryFileName(fileSrc); // Get entry file name
+        FILE *entFile = fopen(entryFile, "w"); // Open entry file for writing
         if (entFile == NULL) {
             fprintf(stderr, "Error: unable to open %s for writing.\n", entryFile);
             fclose(entFile);
@@ -194,39 +204,51 @@ void loadInFiles(char *fileSrc) {
         fclose(entFile);
     }
 }
-
+/**
+ * @param fileName The source file name
+ * 
+ * @returns a new file name with .ob extension for the object file
+ */
 char* objectFileName(char *fileName) {
     char newFileName[FILENAME_MAX];
     int i = 0;
     for (;i < strlen(fileName); i++) {
-        if (fileName[i] == '.') break;
-        newFileName[i] = fileName[i];
+        if (fileName[i] == '.') break; // Find the first dot
+        newFileName[i] = fileName[i]; // Copy characters until dot
     }
-    newFileName[i] = '\0';
-    strcat(newFileName , ".ob");
+    newFileName[i] = '\0'; // Null terminate the string
+    strcat(newFileName , ".ob"); // Append .ob extension
     return strdup(newFileName);
 }
-
+/**
+ * @param fileName The source file name
+ *
+ * @returns a new file name with .ext extension for the external file
+ */
 char* externalFileName(char *fileName) {
     char newFileName[FILENAME_MAX];
     int i = 0;
     for (;i < strlen(fileName); i++) {
-        if (fileName[i] == '.') break;
-        newFileName[i] = fileName[i];
+        if (fileName[i] == '.') break; // Find the first dot
+        newFileName[i] = fileName[i]; // Copy characters until dot
     }
-    newFileName[i] = '\0';
-    strcat(newFileName , ".ext");
+    newFileName[i] = '\0'; // Null terminate the string
+    strcat(newFileName , ".ext"); // Append .ext extension
     return strdup(newFileName);
 }
-
+/**
+ * @param fileName The source file name
+ *
+ * @returns a new file name with .ent extension for the entry file
+ */
 char* entryFileName(char *fileName) {
     char newFileName[FILENAME_MAX];
     int i = 0;
     for (;i < strlen(fileName); i++) {
-        if (fileName[i] == '.') break;
-        newFileName[i] = fileName[i];
+        if (fileName[i] == '.') break; // Find the first dot
+        newFileName[i] = fileName[i]; // Copy characters until dot
     }
-    newFileName[i] = '\0';
-    strcat(newFileName , ".ent");
+    newFileName[i] = '\0'; // Null terminate the string
+    strcat(newFileName , ".ent"); // Append .ent extension
     return strdup(newFileName);
 }
