@@ -297,7 +297,7 @@ char* codeToBinary(char *line) {
 
     if (op->expectedOperands == 1) { // If only one operand is expected
         if (operand2 != NULL) { // if only one expected but there are two.
-            fprintf(stderr, "Error: in line %d: Instruction '%s' expects 1 operand but got 2.\n", line ,operation);
+            fprintf(stderr, "Error: Instruction '%s' expects 1 operand but got 2.\n" ,operation);
             errorCode = 1;
             return NULL; // Error: too many operands
         }
@@ -359,7 +359,7 @@ char* codeToBinary(char *line) {
  * the type of data it contains and then converting it accordingly.
  */
 char* dataToBinary(char *line , int words , int lineCounter) {
-    char *binaryString = (char *)malloc((words*BITS_IN_WORD + NULL_TERMINATOR_LENGTH)*sizeof(char)); // Adjust size as needed
+    char *binaryString = (char *)malloc((BITS_IN_WORD*words + NULL_TERMINATOR_LENGTH + words*NEWLINE_LENGTH)*sizeof(char)); // Adjust size as needed
     if (!binaryString) return NULL;
 
     char *lineCopy = strdup(line);
@@ -397,7 +397,6 @@ char* dataToBinary(char *line , int words , int lineCounter) {
     if (isData) { // Handle .data
         char *currentNumber = strtok(NULL, ","); 
         char *ptrBinaryString = binaryString; // Pointer for building binary string
-        char *lineCopyData = strdup(lineCopy);
 
         while (currentNumber != NULL) {
             char *value = removeStartEndSpaces(currentNumber); // Removing spaces
@@ -456,6 +455,7 @@ char* dataToBinary(char *line , int words , int lineCounter) {
             errorCode = 1;
             return NULL;
         }
+        free(lineCopyString);
     }
     else if (isMat) { // Handle .mat
         char *lineCopyMat = strdup(line);
