@@ -23,17 +23,16 @@ int spreadMacros(char* fileDest , char* fileSrc , char*** macroTblPtr) {
     printf("File %s : starting macro processing.\n" , fileSrc);
     char** macroTbl = NULL;         // Table for macro names
     char** macroContent = NULL;     // Table for macro content
-    FILE* dest = fopen(fileDest, "w");
-    if (dest == NULL) { // if file pointer is null ,
-        fprintf(stderr, "Error: File %s couldn't be opened\n", fileDest); // send error message
-        return 1; // error code.
-    }
     FILE* src = fopen(fileSrc, "r");
     if (src == NULL) { // if file pointer is null ,
         fprintf(stderr, "Error: File %s couldn't be opened\n", fileSrc); // send error message
         return 1; // error code.
     }
-    
+    FILE* dest = fopen(fileDest, "w");
+    if (dest == NULL) { // if file pointer is null ,
+        fprintf(stderr, "Error: File %s couldn't be opened\n", fileDest); // send error message
+        return 1; // error code.
+    }    
     int macrIdx = loadMacroIntoTables(&macroTbl, &macroContent, src , fileSrc); // load macros from input files into tables
     fclose(src); // close input file after reading macros
     src = fopen(fileSrc, "r");
@@ -81,11 +80,10 @@ int loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, FILE* src 
     }
 
     char line[MAX_IN_LINE + 2];   // MAX_IN_LINE + 2 = 80 + '\n' + '\0'
-    int skipCurrent = 0;          // 'boolean' to skip current file on error
     int inMacro = 0;              // is in macro?
     int lineCounter = 1;          // line counter for error messages
 
-    while (getLineFromFile(src, line, fileSrc , &lineCounter) != NULL && !skipCurrent) { // go over the file , line by line.
+    while (getLineFromFile(src, line, fileSrc , &lineCounter) != NULL) { // go over the file , line by line.
         char cleanLine[MAX_IN_LINE + 2];  // trimmed string buffer
         strcpy(cleanLine, line);
         char* trimmed = removeStartEndSpaces(cleanLine);  // trim string
@@ -98,7 +96,6 @@ int loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, FILE* src 
             } 
             else if (status == 2) {  // Extraneous text after mcroend
                 fprintf(stderr, "Error: in file: %s line %d: Extraneous text after 'mcroend'\n", fileSrc , lineCounter);
-                skipCurrent = 1;
                 errorCode = 1;
             } 
             else {  // Regular line inside macro , because status is 0
@@ -120,13 +117,11 @@ int loadMacroIntoTables(char*** macroTblPtr, char*** macroContentPtr, FILE* src 
                 token = strtok(NULL, " \t"); // forward to see name of macro.
                 if (token == NULL || !isValidName(token)) { // if there is no name or invalid name.
                     fprintf(stderr, "Error: in file %s: line %d: Invalid macro name\n", fileSrc , lineCounter);
-                    skipCurrent = 1; // skip corrent file.
                     errorCode = 1;
                     continue; // skip corrent iteration.
                 }                
                 if (strtok(NULL, " \t") != NULL) { // if more text after macro name.
                     fprintf(stderr, "Error: in file %s: line %d: Extraneous text after macro name\n", fileSrc, lineCounter);
-                    skipCurrent = 1; // skip corrent file.
                     errorCode = 1;
                     continue; // skip corrent iteration.
                 } 
