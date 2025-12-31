@@ -105,6 +105,8 @@ void firstPass(char *fileDest , char *fileSrc) {
             else {
                 binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep)); // add space 
                 binRep[binRepIdx].lineType = "data"; // set line type
+                char *binary = dataToBinary(originalLine , dataWords , lineCounter); 
+                if (binary == NULL) continue;
                 binRep[binRepIdx].binaryString = strdup(dataToBinary(originalLine , dataWords , lineCounter)); // convert to binary
                 binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
                 binRep[binRepIdx].address = DC; // Set address for data
@@ -127,7 +129,9 @@ void firstPass(char *fileDest , char *fileSrc) {
             else {
                 binRep = realloc(binRep , (binRepIdx + 1) * sizeof(BinRep)); // add space
                 binRep[binRepIdx].lineType = "code"; // set line type
-                binRep[binRepIdx].binaryString = strdup(codeToBinary(lineForCode)); // convert to binary
+                char *binary = codeToBinary(lineForCode);
+                if (binary == NULL) continue;
+                binRep[binRepIdx].binaryString = strdup(binary); // convert to binary
                 binRep[binRepIdx].lineNumber = lineCounter; // Store line number for error messages
                 binRep[binRepIdx].address = IC; // Set address for code
                 binRepIdx++;
@@ -198,7 +202,7 @@ int isValidLabel(char *label, char **macroTbl, Symbol *symbolTable , int lineCou
     }
     
     if (macroTbl != NULL) { // check if label is a macro
-        for (int i = 0; macroTbl[i] != NULL; i++) {
+        for (int i = 0; i < macrIdx; i++) {
             if (strcmp(label, macroTbl[i]) == 0) {
                 fprintf(stderr, "Error: in line: %d Label '%s' is a macro name.\n", lineCounter , label);
                 errorCode = 1;
@@ -364,7 +368,7 @@ int countWordsForData(char *line , int lineCounter){
         }
         dc++; // for null terminator
     }
-    else if (strncmp(pointerToOriginalLine, ".mat", 4) == 0 && (isspace(pointerToOriginalLine[4]) || pointerToOriginalLine[4] == '\0')) {  // Handle .mat directive
+    else if (strncmp(pointerToOriginalLine, ".mat", 4) == 0 && (isspace(pointerToOriginalLine[4]) || pointerToOriginalLine[4] == '\0' || pointerToOriginalLine[4] == '[')) {  // Handle .mat directive
         char *args = removeStartEndSpaces(pointerToOriginalLine + 4);
 
         char *open1 = strchr(args, '['); // take size in brackets
