@@ -58,13 +58,14 @@ void secondPass(char *fileSrc) {
                 // Process multi-line binaryString (split by '\n')
                 char *temp = strdup(binRep[i].binaryString); // Create a copy to avoid modifying original
                 char *token = strtok(temp, "\n");
-                char newBinary[MAX_WORDS_FOR_CODE * (BITS_IN_WORD + NULL_TERMINATOR_LENGTH)]; // new binary string to buffer for the new binary representation
+                char newBinary[100]; // new binary string to buffer for the new binary representation
                 newBinary[0] = '\0'; // Initialize the empty string
                 int lineCount = 0; 
                 while (token != NULL) { // while there are tokens to process
                     // If token is not pure binary there must be a label
                     if (strspn(token, "01-") != strlen(token)) { // check if the line has a label if there is, enter the if.
                         int found = 0; // Flag to check if label is found
+                        token = removeStartEndSpaces(token);
                         for (int j = 0; j < symbolIdx; j++) {
                             if (strcmp(symbolTable[j].label, token) == 0) {
                                 found = 1; // found label
@@ -109,8 +110,10 @@ void secondPass(char *fileSrc) {
         lineCounter++; // Increment line counter for error messages
     }
     fclose(secPass);
+    if (errorCode == 1) {
+        exit(1);
+    }
     loadInFiles(fileSrc); // Load in files after second pass
-    printf("Second pass completed.\n");
 }
 /**
  * @param fileSrc The source file to change its extention to .ob , .ent , .ext
