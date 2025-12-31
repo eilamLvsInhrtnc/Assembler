@@ -124,7 +124,7 @@ int getAdressType(char *operand) {
     if (!operand) return -1;
     if (operand[0] == '#') return 0; // Immediate
     if (strchr(operand, '[')) return 2; // Matrix
-    if (operand[0] == 'r' && isdigit(operand[1]) && operand[2] == '\0') {
+    if (operand[0] == 'r' && isdigit(operand[1])) {
         int regNum = operand[1] - '0';
         if (regNum >= 0 && regNum <= 7) return 3; // Register
     }
@@ -289,8 +289,8 @@ char* codeToBinary(char *line) {
         operand2 = strtok(NULL, ",");
     }
 
-    if (operand1) while (*operand1 == ' ' || *operand1 == '\t') operand1++;
-    if (operand2) while (*operand2 == ' ' || *operand2 == '\t') operand2++;
+    operand1 = removeStartEndSpaces(operand1);
+    operand2 = removeStartEndSpaces(operand2);
     
     int srcAddr = (operand1) ? getAdressType(operand1) : 0; // Determine source address type
     int destAddr = (operand2) ? getAdressType(operand2) : 0; // Determine destination address type
