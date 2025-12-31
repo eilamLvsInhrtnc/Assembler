@@ -10,6 +10,7 @@
 #include "util.h"
 
 int errorCode = 0; // initializing global error code
+int macrIdx = 0; // initializing macro Table index
 int symbolIdx = 0; // initializing symbolTable index
 int binRepIdx = 0; // initializing binRep index
 int ICF = 0; // initializing final instruction counter
@@ -47,22 +48,20 @@ const char commands[16][4] = { "mov" , "cmp" , "add" , "sub" , "lea" , "clr" ,"n
  * pointer to the trimmed string (no spaces in start or end)
  */
 char* removeStartEndSpaces(char* str) {
-    while (*str == ' ' || *str == '\t') { // Trim starting spaces
-        str++;
-    } 
-    if (*str == '\0') { // If the string is all spaces, return it
-        return str;
-    }
-    char* end = str;
-    while (*end != '\0') {  // Find the end of the string and trim end spaces
-        end++;
-    }
-    end--;  // Move back to the last character
+    if (!str) return NULL;
+
+    // Trim leading spaces
+    while (*str == ' ' || *str == '\t') str++;
+
+    if (*str == '\0') return str; // all spaces
+
+    // Trim trailing spaces
+    char* end = str + strlen(str) - 1;
     while (end > str && (*end == ' ' || *end == '\t')) {
         end--;
     }
-    end[1] = '\0';  // finish after last character
-    return str; // return new string
+    end[1] = '\0'; // safely null terminate
+    return str;
 }
 
 /**
